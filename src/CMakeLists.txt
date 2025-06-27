@@ -10,6 +10,7 @@ execute_process(COMMAND
 
 file(GLOB DBUS_SRC *.dbus.h *.dbus.c)
 add_executable(graceful-DE2 main.c
+        gd-wm.c gd-wm.h
         gd-session.c gd-session.h
         gd-application.c gd-application.h
         ${DBUS_SRC}
@@ -18,5 +19,6 @@ target_include_directories(graceful-DE2 PUBLIC
         ${GTK_INCLUDE_DIRS}
 )
 target_link_libraries(graceful-DE2 PUBLIC
+        -lX11
         ${GTK_LIBRARIES}
 )
