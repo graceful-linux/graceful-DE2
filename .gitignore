@@ -2,6 +2,10 @@
 cmake-*/
 build/
 build-*/
+
+*.dbus.c
+*.dbus.h
+
 # Prerequisites
 *.d
 

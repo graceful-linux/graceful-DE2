@@ -1,11 +1,11 @@
 cmake_minimum_required(VERSION 3.10)
-project(graceful-DE2 LANGUAGES C CXX)
+project(graceful-DE2 LANGUAGES C)
 
 set(DEBUG ON)
 
 set(PROJECT_VERSION_MAJOR 0)
 set(PROJECT_VERSION_MINOR 0)
-set(PROJECT_VERSION_PATCH 0)
+set(PROJECT_VERSION_PATCH 1)
 
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
@@ -19,6 +19,7 @@ add_definitions(
         -D PACKAGE_VERSION=\\"${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}.${PROJECT_VERSION_PATCH}\\")
 
 find_package (PkgConfig)
+pkg_check_modules(GTK gtk+-3.0 REQUIRED)
 
 cmake_host_system_information(RESULT OS QUERY OS_NAME)
 cmake_host_system_information(RESULT RELEASE QUERY OS_RELEASE)
@@ -37,3 +38,5 @@ MESSAGE(STATUS "OS distribute   : '${DISTRIB}'")
 MESSAGE(STATUS "OS release      : '${RELEASE}'")
 MESSAGE(STATUS "Qt Version      : '${CUR_QT_VERSION}'")
 MESSAGE("")
+
+add_subdirectory(src)
