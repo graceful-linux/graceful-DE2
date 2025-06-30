@@ -8,6 +8,13 @@ execute_process(COMMAND
         gd-sm-client-private-gen.dbus dbus/org.graceful.SessionManager:ClientPrivate.xml
         WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/src)
 
+execute_process(COMMAND
+        gdbus-codegen --c-namespace GD_DBus
+        --generate-c-code gd-dbus-x11.dbus
+        --interface-prefix org.gnome.Mutter
+        dbus/org.graceful.Mutter.X11.xml
+        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/src)
+
 file(GLOB DBUS_SRC *.dbus.h *.dbus.c)
 add_executable(graceful-DE2 main.c
         gd-wm.c gd-wm.h
@@ -44,6 +51,7 @@ add_executable(graceful-DE2 main.c
         backends/gd-output-xrandr-private.h backends/gd-output-xrandr.c backends/gd-output.c
         backends/gd-monitors-config-private.h backends/gd-monitors-config.c
         backends/gd-dbus-display-config.h backends/gd-dbus-display-config.c
+        gd-confirm-display-change-dialog.h gd-confirm-display-change-dialog.c
 
         ${DBUS_SRC}
 )

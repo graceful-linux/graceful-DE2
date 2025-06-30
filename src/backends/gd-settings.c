@@ -186,13 +186,11 @@ static void gd_settings_class_init (GDSettingsClass* settingsClass)
 
 static void gd_settings_init (GDSettings *settings)
 {
-    settings->interface = g_settings_new ("org.graceful.desktop.interface");
-    g_signal_connect (settings->interface, "changed",
-                    G_CALLBACK (interface_changed_cb), settings);
+    settings->interface = g_settings_new ("org.gnome.desktop.interface");
+    g_signal_connect (settings->interface, "changed", G_CALLBACK (interface_changed_cb), settings);
 
     /* Chain up inter-dependent settings. */
-    g_signal_connect (settings, "global-scaling-factor-changed",
-                    G_CALLBACK (global_scaling_factor_changed_cb), NULL);
+    g_signal_connect (settings, "global-scaling-factor-changed", G_CALLBACK (global_scaling_factor_changed_cb), NULL);
 
     update_global_scaling_factor (settings);
 }
