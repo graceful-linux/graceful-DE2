@@ -16,11 +16,13 @@ add_definitions(
         -w -g
         -D PACKAGE_NAME=\\"${PROJECT_NAME}\\"
         -D G_LOG_DOMAIN=\\"${PROJECT_NAME}\\"
+        -D GNOME_DESKTOP_USE_UNSTABLE_API
         -D PACKAGE_VERSION=\\"${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}.${PROJECT_VERSION_PATCH}\\")
 
 find_package (PkgConfig)
 pkg_check_modules(GTK gtk+-3.0 REQUIRED)
 pkg_check_modules(X11 x11-xcb xcb-randr REQUIRED)
+pkg_check_modules(GNOME gnome-desktop-4 gnome-bg-4 REQUIRED)
 
 cmake_host_system_information(RESULT OS QUERY OS_NAME)
 cmake_host_system_information(RESULT RELEASE QUERY OS_RELEASE)

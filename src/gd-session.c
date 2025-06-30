@@ -197,7 +197,8 @@ void gd_session_set_environment(GDSession * self, const char * name, const char 
 
 void gd_session_register(GDSession * self)
 {
-    gd_session_manager_gen_call_register_client(self->sessionManager, "graceful-DE2", self->startupId, self->cancellable, register_client_cb, self);
+    gd_session_manager_gen_call_register_client(self->sessionManager,
+        "graceful-DE2", self->startupId, self->cancellable, register_client_cb, self);
 }
 
 static void register_client_cb (GObject* sObj, GAsyncResult* res, void* uData)

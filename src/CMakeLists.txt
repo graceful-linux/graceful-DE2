@@ -53,14 +53,21 @@ add_executable(graceful-DE2 main.c
         backends/gd-dbus-display-config.h backends/gd-dbus-display-config.c
         gd-confirm-display-change-dialog.h gd-confirm-display-change-dialog.c
 
+        plugins/common/gd-bg.h plugins/common/gd-bg.c
+        plugins/common/gd-keybindings.h plugins/common/gd-keybindings.c
+        plugins/common/gd-popup-window.h plugins/common/gd-popup-window.c
+        plugins/common/gd-common-enum-types.h plugins/common/gd-common-enum-types.c
+
         ${DBUS_SRC}
 )
 target_include_directories(graceful-DE2 PUBLIC
         ${X11_INCLUDE_DIRS}
         ${GTK_INCLUDE_DIRS}
+        ${GNOME_INCLUDE_DIRS}
 )
 target_link_libraries(graceful-DE2 PUBLIC
         -lm -lXext -lXrandr
         ${X11_LIBRARIES}
         ${GTK_LIBRARIES}
+        ${GNOME_LIBRARIES}
 )
