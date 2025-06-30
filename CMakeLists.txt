@@ -20,6 +20,7 @@ add_definitions(
 
 find_package (PkgConfig)
 pkg_check_modules(GTK gtk+-3.0 REQUIRED)
+pkg_check_modules(X11 x11-xcb xcb-randr REQUIRED)
 
 cmake_host_system_information(RESULT OS QUERY OS_NAME)
 cmake_host_system_information(RESULT RELEASE QUERY OS_RELEASE)
