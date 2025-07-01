@@ -25,7 +25,12 @@ typedef struct
     GList* gpus;
 } GDBackendPrivate;
 
-enum { LID_IS_CLOSED_CHANGED, GPU_ADDED, LAST_SIGNAL };
+enum
+{
+    LID_IS_CLOSED_CHANGED,
+    GPU_ADDED,
+    LAST_SIGNAL
+};
 
 static guint backend_signals[LAST_SIGNAL] = {0};
 
@@ -72,8 +77,9 @@ static void upower_ready_cb(GObject* source_object, GAsyncResult* res, gpointer 
     proxy = g_dbus_proxy_new_finish(res, &error);
 
     if (proxy == NULL) {
-        if (!g_error_matches(error, G_IO_ERROR, G_IO_ERROR_CANCELLED))
+        if (!g_error_matches(error, G_IO_ERROR, G_IO_ERROR_CANCELLED)) {
             g_warning("Failed to create UPower proxy: %s", error->message);
+        }
 
         g_error_free(error);
         return;
@@ -244,7 +250,8 @@ GDBackend* gd_backend_new(GDBackendType type)
         gtype = GD_TYPE_BACKEND_X11_CM;
         break;
 
-    default: g_assert_not_reached();
+    default:
+        g_assert_not_reached();
         break;
     }
 
