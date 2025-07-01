@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name[zh_CN]=Graceful DE2
+Name=Graceful DE2(Metacity)
+Comment[zh_CN]=此会话将登录您到 Graceful DE2
+Comment=This session logs you into Graceful DE2
+Exec=/usr/libexec/graceful-DE2
+TryExec=mutter
+Type=Application
+DesktopNames=graceful-DE2;graceful;Graceful;

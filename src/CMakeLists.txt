@@ -102,3 +102,5 @@ target_link_libraries(graceful-DE2 PUBLIC
         ${GNOME_LIBRARIES}
         ${SYSTEMD_LIBRARIES}
 )
+
+install(TARGETS graceful-DE2 DESTINATION libexec/)
