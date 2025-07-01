@@ -21,6 +21,7 @@ add_definitions(
 
 find_package (PkgConfig)
 pkg_check_modules(GTK gtk+-3.0 REQUIRED)
+pkg_check_modules(SYSTEMD libsystemd REQUIRED)
 pkg_check_modules(X11 x11-xcb xcb-randr REQUIRED)
 pkg_check_modules(GNOME gnome-desktop-4 gnome-bg-4 REQUIRED)
 

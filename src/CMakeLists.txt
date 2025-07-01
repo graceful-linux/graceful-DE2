@@ -15,6 +15,18 @@ execute_process(COMMAND
         dbus/org.graceful.Mutter.X11.xml
         WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/src)
 
+execute_process(COMMAND
+        gdbus-codegen --c-namespace GD
+        --generate-c-code gd-file-manager-gen.dbus
+        dbus/org.freedesktop.FileManager1.xml
+        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/src)
+
+execute_process(COMMAND
+        gdbus-codegen --c-namespace GD
+        --generate-c-code gd-nautilus2-gen.dbus
+        dbus/org.gnome.Nautilus.FileOperations2.xml
+        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/src)
+
 file(GLOB DBUS_SRC *.dbus.h *.dbus.c)
 add_executable(graceful-DE2 main.c
         gd-wm.c gd-wm.h
@@ -58,16 +70,35 @@ add_executable(graceful-DE2 main.c
         plugins/common/gd-popup-window.h plugins/common/gd-popup-window.c
         plugins/common/gd-common-enum-types.h plugins/common/gd-common-enum-types.c
 
+        plugins/desktop/gd-desktop-enums.h
+        plugins/desktop/gd-icon.h plugins/desktop/gd-icon.c
+        plugins/desktop/gd-utils.h plugins/desktop/gd-utils.c
+        plugins/desktop/gd-desktop.h plugins/desktop/gd-desktop.c
+        plugins/desktop/gd-icon-view.h plugins/desktop/gd-icon-view.c
+        plugins/desktop/gd-home-icon.h plugins/desktop/gd-home-icon.c
+        plugins/desktop/gd-trash-icon.h plugins/desktop/gd-trash-icon.c
+        plugins/desktop/gd-background.h plugins/desktop/gd-background.c
+        plugins/desktop/gd-dummy-icon.h plugins/desktop/gd-dummy-icon.c
+        plugins/desktop/gd-monitor-view.h plugins/desktop/gd-monitor-view.c
+        plugins/desktop/gd-rename-popover.h plugins/desktop/gd-rename-popover.c
+        plugins/desktop/gd-desktop-window.h plugins/desktop/gd-desktop-window.c
+        plugins/desktop/gd-workarea-watcher.h plugins/desktop/gd-workarea-watcher.c
+        plugins/desktop/gd-thumbnail-factory.h plugins/desktop/gd-thumbnail-factory.c
+        plugins/desktop/gd-desktop-enum-types.h plugins/desktop/gd-desktop-enum-types.c
+        plugins/desktop/gd-create-folder-dialog.h plugins/desktop/gd-create-folder-dialog.c
+
         ${DBUS_SRC}
 )
 target_include_directories(graceful-DE2 PUBLIC
         ${X11_INCLUDE_DIRS}
         ${GTK_INCLUDE_DIRS}
         ${GNOME_INCLUDE_DIRS}
+        ${SYSTEMD_INCLUDE_DIRS}
 )
 target_link_libraries(graceful-DE2 PUBLIC
         -lm -lXext -lXrandr
         ${X11_LIBRARIES}
         ${GTK_LIBRARIES}
         ${GNOME_LIBRARIES}
+        ${SYSTEMD_LIBRARIES}
 )

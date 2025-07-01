@@ -9,6 +9,7 @@
 #include "gd-wm.h"
 #include "gd-ui-scaling.h"
 #include "backends/gd-backend.h"
+#include "plugins/desktop/gd-desktop.h"
 #include "gd-session-manager-gen.dbus.h"
 #include "gd-confirm-display-change-dialog.h"
 
@@ -16,19 +17,25 @@
 struct _GDApplication
 {
     GObject                         parent;
+
     GDWm*                           wm;
     GDBackend*                      backend;
-    GDUiScaling*                    uiScaling;
     guint                           busName;
+    GDDesktop*                      desktop;
     GtkStyleProvider*               provider;
+    GSettings*                      settings;
+    GDUiScaling*                    uiScaling;
 
     GtkWidget*                      displayChangeDialog;
 };
 G_DEFINE_TYPE(GDApplication, gd_application, G_TYPE_OBJECT)
 
 
+static void update_theme (GDApplication* obj);
 static void gd_application_dispose (GObject* obj);
 static void confirm_display_change_cb (GDMonitorManager* mm, GDApplication *app);
+static void settings_changed (GSettings* settings, const gchar* key, void* uData);
+static void theme_changed (GtkSettings* settings, GParamSpec* pspec, GDApplication* obj);
 static void keep_changes_cb (GDConfirmDisplayChangeDialog *dialog, bool keep_changes, GDApplication* app);
 
 
@@ -37,14 +44,23 @@ static void gd_application_init (GDApplication* obj)
     GDMonitorManager* mm = NULL;
 
     obj->wm = gd_wm_new();
-    obj->busName = g_bus_own_name(G_BUS_TYPE_SESSION, "org.graceful.DE2",
-        G_BUS_NAME_OWNER_FLAGS_REPLACE | G_BUS_NAME_OWNER_FLAGS_ALLOW_REPLACEMENT,
-        NULL, NULL, NULL, NULL, NULL);
     obj->backend = gd_backend_new (GD_BACKEND_TYPE_X11_CM);
     obj->uiScaling = gd_ui_scaling_new (obj->backend);
 
     mm = gd_backend_get_monitor_manager (obj->backend);
     g_signal_connect (mm, "confirm-display-change", G_CALLBACK (confirm_display_change_cb), obj);
+
+    // settings
+    GtkSettings* settings = gtk_settings_get_default();
+    g_signal_connect (settings, "notify::gtk-theme-name", G_CALLBACK (theme_changed), obj);
+
+    obj->settings = g_settings_new ("org.gnome.gnome-flashback");
+    g_signal_connect (obj->settings, "changed", G_CALLBACK (settings_changed), obj);
+    settings_changed (obj->settings, NULL, obj);
+
+    obj->busName = g_bus_own_name(G_BUS_TYPE_SESSION, "org.graceful.DE2",
+        G_BUS_NAME_OWNER_FLAGS_REPLACE | G_BUS_NAME_OWNER_FLAGS_ALLOW_REPLACEMENT,
+        NULL, NULL, NULL, NULL, NULL);
 }
 
 static void gd_application_class_init (GDApplicationClass* klass)
@@ -66,6 +82,7 @@ static void gd_application_dispose (GObject* obj)
     C_FREE_FUNC(app->busName, g_bus_unown_name);
     C_FREE_FUNC_NULL(app->wm, g_object_unref);
     C_FREE_FUNC_NULL(app->backend, g_object_unref);
+    C_FREE_FUNC_NULL(app->desktop, g_object_unref);
     C_FREE_FUNC_NULL(app->uiScaling, g_object_unref);
     C_FREE_FUNC_NULL(app->displayChangeDialog, gtk_widget_destroy);
 
@@ -92,4 +109,108 @@ static void keep_changes_cb (GDConfirmDisplayChangeDialog *dialog, bool keep_cha
 
     gd_monitor_manager_confirm_configuration (mm, keep_changes);
     g_clear_pointer (&app->displayChangeDialog, gtk_widget_destroy);
+}
+
+static void settings_changed (GSettings* settings, const gchar* key, void* uData)
+{
+    GDApplication *application;
+    GDMonitorManager *monitor_manager;
+
+    application = GD_APPLICATION (uData);
+    monitor_manager = gd_backend_get_monitor_manager (application->backend);
+
+#define SETTING_CHANGED(variable_name, setting_name, function_name) \
+    if (key == NULL || g_strcmp0 (key, setting_name) == 0) { \
+        if (g_settings_get_boolean (settings, setting_name)) { \
+            if (application->variable_name == NULL) { \
+                application->variable_name = function_name (); \
+            } \
+        } \
+        else { \
+            g_clear_object (&application->variable_name); \
+        } \
+    }
+
+  // SETTING_CHANGED (automount, "automount-manager", gsd_automount_manager_new)
+  // SETTING_CHANGED (shell, "shell", flashback_shell_new)
+  // SETTING_CHANGED (a11y_keyboard, "a11y-keyboard", gf_a11y_keyboard_new)
+  // SETTING_CHANGED (audio_device_selection, "audio-device-selection", gf_audio_device_selection_new)
+  SETTING_CHANGED (desktop, "desktop", gd_desktop_new)
+  // SETTING_CHANGED (dialog, "end-session-dialog", gf_end_session_dialog_new)
+  // SETTING_CHANGED (input_settings, "input-settings", gf_input_settings_new)
+  // SETTING_CHANGED (input_sources, "input-sources", gf_input_sources_new)
+  // SETTING_CHANGED (notifications, "notifications", gf_notifications_new)
+  // SETTING_CHANGED (root_background, "root-background", gf_root_background_new)
+  // SETTING_CHANGED (screencast, "screencast", gf_screencast_new)
+  // SETTING_CHANGED (screensaver, "screensaver", gf_screensaver_new)
+  // SETTING_CHANGED (screenshot, "screenshot", gf_screenshot_new)
+  // SETTING_CHANGED (status_notifier_watcher, "status-notifier-watcher", gf_status_notifier_watcher_new)
+
+#undef SETTING_CHANGED
+
+  if (application->desktop) {
+      gd_desktop_set_monitor_manager (application->desktop, monitor_manager);
+  }
+
+  // if (application->input_settings)
+    // gf_input_settings_set_monitor_manager (application->input_settings,
+                                           // monitor_manager);
+
+  // if (application->screensaver)
+    // {
+      // gf_screensaver_set_monitor_manager (application->screensaver,
+                                          // monitor_manager);
+
+      // gf_screensaver_set_input_sources (application->screensaver,
+                                        // application->input_sources);
+    // }
+
+  // if (application->shell)
+    // flashback_shell_set_monitor_manager (application->shell, monitor_manager);
+}
+
+static void theme_changed (GtkSettings* settings, GParamSpec* pspec, GDApplication* obj)
+{
+    update_theme (obj);
+}
+
+static void update_theme (GDApplication* obj)
+{
+    GdkScreen *screen;
+    GtkSettings *settings;
+    gchar *theme_name;
+    gboolean prefer_dark;
+    // GDSupportedTheme *theme;
+    gchar *resource;
+    guint priority;
+    GtkCssProvider *css;
+
+    screen = gdk_screen_get_default ();
+    settings = gtk_settings_get_default ();
+
+    if (obj->provider != NULL) {
+        gtk_style_context_remove_provider_for_screen (screen, obj->provider);
+        g_clear_object (&obj->provider);
+    }
+
+    g_object_get (settings, "gtk-theme-name", &theme_name, "gtk-application-prefer-dark-theme", &prefer_dark, NULL);
+
+    // if (is_theme_supported (theme_name, &theme)) {
+        // resource = get_theme_resource (theme, prefer_dark);
+        // priority = GTK_STYLE_PROVIDER_PRIORITY_APPLICATION;
+    // }
+    // else {
+    {
+        resource = g_strdup ("/org/gnome/gnome-flashback/theme/fallback.css");
+        priority = GTK_STYLE_PROVIDER_PRIORITY_FALLBACK;
+    }
+
+    css = gtk_css_provider_new ();
+    obj->provider =  GTK_STYLE_PROVIDER (css);
+
+    gtk_css_provider_load_from_resource (css, resource);
+    gtk_style_context_add_provider_for_screen (screen, obj->provider, priority);
+
+    g_free (theme_name);
+    g_free (resource);
 }
