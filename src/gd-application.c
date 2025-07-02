@@ -43,6 +43,9 @@ static void gd_application_init (GDApplication* obj)
 {
     GDMonitorManager* mm = NULL;
 
+    /**
+     * 监听窗口管理器进程变化，以及处理指定快捷键相关功能(适用于GNOME 2.x, metacity)
+     */
     obj->wm = gd_wm_new();
     obj->backend = gd_backend_new (GD_BACKEND_TYPE_X11_CM);
     obj->uiScaling = gd_ui_scaling_new (obj->backend);
