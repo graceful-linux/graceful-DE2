@@ -110,11 +110,11 @@ static void confirm_display_change_cb (GDMonitorManager* mm, GDApplication *app)
     gtk_window_present (GTK_WINDOW (app->displayChangeDialog));
 }
 
-static void keep_changes_cb (GDConfirmDisplayChangeDialog *dialog, bool keep_changes, GDApplication* app)
+static void keep_changes_cb (GDConfirmDisplayChangeDialog *dialog, bool keepChanges, GDApplication* app)
 {
     GDMonitorManager* mm = gd_backend_get_monitor_manager (app->backend);
 
-    gd_monitor_manager_confirm_configuration (mm, keep_changes);
+    gd_monitor_manager_confirm_configuration (mm, keepChanges);
     g_clear_pointer (&app->displayChangeDialog, gtk_widget_destroy);
 }
 
@@ -123,15 +123,17 @@ static void settings_changed (GSettings* settings, const gchar* key, void* uData
     GDApplication* application = GD_APPLICATION (uData);
     GDMonitorManager* mm = gd_backend_get_monitor_manager (application->backend);
 
-#define SETTING_CHANGED(variable_name, setting_name, function_name) \
-    if (key == NULL || g_strcmp0 (key, setting_name) == 0) { \
-        if (g_settings_get_boolean (settings, setting_name)) { \
-            if (application->variable_name == NULL) { \
-                application->variable_name = function_name (); \
+    g_info("settings changed for %s", key ? key : "(null)");
+
+#define SETTING_CHANGED(objName, settingName, funcName) \
+    if (key == NULL || g_strcmp0 (key, settingName) == 0) { \
+        if (g_settings_get_boolean (settings, settingName)) { \
+            if (application->objName == NULL) { \
+                application->objName = funcName (); \
             } \
         } \
         else { \
-            g_clear_object (&application->variable_name); \
+            g_clear_object (&application->objName); \
         } \
     }
 

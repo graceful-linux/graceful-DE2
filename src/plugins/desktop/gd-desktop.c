@@ -11,25 +11,20 @@ struct _GDDesktop
 {
     GObject parent;
 
-    GSettings* settings;
-
-    GtkWidget* window;
+    GSettings*      settings;
+    GtkWidget*      window;
 };
 
 G_DEFINE_TYPE(GDDesktop, gd_desktop, G_TYPE_OBJECT)
 
-static void
-ready_cb(GDDesktopWindow* window, GDDesktop* self)
+static void ready_cb(GDDesktopWindow* window, GDDesktop* self)
 {
     gtk_widget_show(self->window);
 }
 
-static void
-gd_desktop_dispose(GObject* object)
+static void gd_desktop_dispose(GObject* object)
 {
-    GDDesktop* self;
-
-    self = GD_DESKTOP(object);
+    GDDesktop* self = GD_DESKTOP(object);
 
     g_clear_object(&self->settings);
     g_clear_pointer(&self->window, gtk_widget_destroy);
@@ -37,18 +32,14 @@ gd_desktop_dispose(GObject* object)
     G_OBJECT_CLASS(gd_desktop_parent_class)->dispose(object);
 }
 
-static void
-gd_desktop_class_init(GDDesktopClass* self_class)
+static void gd_desktop_class_init(GDDesktopClass* self)
 {
-    GObjectClass* object_class;
+    GObjectClass* obj = G_OBJECT_CLASS(self);
 
-    object_class = G_OBJECT_CLASS(self_class);
-
-    object_class->dispose = gd_desktop_dispose;
+    obj->dispose = gd_desktop_dispose;
 }
 
-static void
-gd_desktop_init(GDDesktop* self)
+static void gd_desktop_init(GDDesktop* self)
 {
     bool draw_background;
     bool show_icons;
@@ -78,8 +69,7 @@ gd_desktop_init(GDDesktop* self)
     else gtk_widget_show(self->window);
 }
 
-GDDesktop*
-gd_desktop_new(void)
+GDDesktop* gd_desktop_new(void)
 {
     return g_object_new(GD_TYPE_DESKTOP, NULL);
 }

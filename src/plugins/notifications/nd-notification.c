@@ -21,23 +21,21 @@ enum
 
 struct _NdNotification
 {
-    GObject parent;
+    GObject         parent;
 
-    bool is_queued;
-
-    gint64 update_time;
-
-    char* sender;
-    guint32 id;
-    char* app_name;
-    GIcon* icon;
-    char* summary;
-    char* body;
-    char** actions;
-    bool transient;
-    bool resident;
-    bool action_icons;
-    int timeout;
+    bool            isQueued;
+    gint64          updateTime;
+    char*           sender;
+    guint32         id;
+    char*           appName;
+    GIcon*          icon;
+    char*           summary;
+    char*           body;
+    char**          actions;
+    bool            transient;
+    bool            resident;
+    bool            actionIcons;
+    int             timeout;
 };
 
 static void nd_notification_finalize(GObject* object);
@@ -259,14 +257,14 @@ nd_notification_init(NdNotification* notification)
 {
     notification->id = get_next_notification_serial();
 
-    notification->app_name = NULL;
+    notification->appName = NULL;
     notification->icon = NULL;
     notification->summary = NULL;
     notification->body = NULL;
     notification->actions = NULL;
     notification->transient = FALSE;
     notification->resident = FALSE;
-    notification->action_icons = FALSE;
+    notification->actionIcons = FALSE;
 }
 
 static void
@@ -277,7 +275,7 @@ nd_notification_finalize(GObject* object)
     notification = ND_NOTIFICATION(object);
 
     g_free(notification->sender);
-    g_free(notification->app_name);
+    g_free(notification->appName);
     g_clear_object(&notification->icon);
     g_free(notification->summary);
     g_free(notification->body);
@@ -293,8 +291,8 @@ nd_notification_update(NdNotification* notification, const gchar* app_name, cons
 
     g_return_val_if_fail(ND_IS_NOTIFICATION (notification), FALSE);
 
-    g_free(notification->app_name);
-    notification->app_name = g_strdup(app_name);
+    g_free(notification->appName);
+    notification->appName = g_strdup(app_name);
 
     g_free(notification->summary);
     notification->summary = g_strdup(summary);
@@ -313,13 +311,13 @@ nd_notification_update(NdNotification* notification, const gchar* app_name, cons
 
     if (!g_variant_dict_lookup(&dict, "resident", "b", &notification->resident)) notification->resident = FALSE;
 
-    if (!g_variant_dict_lookup(&dict, "action-icons", "b", &notification->action_icons)) notification->action_icons = FALSE;
+    if (!g_variant_dict_lookup(&dict, "action-icons", "b", &notification->actionIcons)) notification->actionIcons = FALSE;
 
     notification->timeout = timeout;
 
     g_signal_emit(notification, signals[CHANGED], 0);
 
-    notification->update_time = g_get_real_time();
+    notification->updateTime = g_get_real_time();
 
     return TRUE;
 }
@@ -329,7 +327,7 @@ nd_notification_get_update_time(NdNotification* notification)
 {
     g_return_val_if_fail(ND_IS_NOTIFICATION (notification), 0);
 
-    return notification->update_time;
+    return notification->updateTime;
 }
 
 void
@@ -337,7 +335,7 @@ nd_notification_set_is_queued(NdNotification* notification, bool is_queued)
 {
     g_return_if_fail(ND_IS_NOTIFICATION (notification));
 
-    notification->is_queued = is_queued;
+    notification->isQueued = is_queued;
 }
 
 bool
@@ -345,7 +343,7 @@ nd_notification_get_is_queued(NdNotification* notification)
 {
     g_return_val_if_fail(ND_IS_NOTIFICATION (notification), FALSE);
 
-    return notification->is_queued;
+    return notification->isQueued;
 }
 
 bool
@@ -363,7 +361,7 @@ nd_notification_get_is_resident(NdNotification* notification)
 bool
 nd_notification_get_action_icons(NdNotification* notification)
 {
-    return notification->action_icons;
+    return notification->actionIcons;
 }
 
 guint32
@@ -443,9 +441,8 @@ nd_notification_action_invoked(NdNotification* notification, const char* action)
 NdNotification*
 nd_notification_new(const char* sender)
 {
-    NdNotification* notification;
-
-    notification = (NdNotification*)g_object_new(ND_TYPE_NOTIFICATION, NULL);
+    g_info("nd notification new\n");
+    NdNotification* notification = (NdNotification*)g_object_new(ND_TYPE_NOTIFICATION, NULL);
     notification->sender = g_strdup(sender);
 
     return notification;
@@ -454,29 +451,26 @@ nd_notification_new(const char* sender)
 bool
 validate_markup(const gchar* markup)
 {
-    gchar* parsed_markup;
-    GError* error;
+    GError* error = NULL;
+    gchar* parsedMarkup = NULL;
 
-    parsed_markup = NULL;
-    error = NULL;
-
-    if (!parse_markup(markup, &parsed_markup, &error)) {
+    if (!parse_markup(markup, &parsedMarkup, &error)) {
         g_warning("%s", error->message);
         g_error_free(error);
 
         return FALSE;
     }
 
-    if (!pango_parse_markup(parsed_markup, -1, 0, NULL, NULL, NULL, &error)) {
+    if (!pango_parse_markup(parsedMarkup, -1, 0, NULL, NULL, NULL, &error)) {
         g_warning("%s", error->message);
         g_error_free(error);
 
-        g_free(parsed_markup);
+        g_free(parsedMarkup);
 
         return FALSE;
     }
 
-    g_free(parsed_markup);
+    g_free(parsedMarkup);
 
     return TRUE;
 }

@@ -274,7 +274,7 @@ static void gd_sn_watcher_v0_class_init(GDSnWatcherV0Class* v0Class)
 
 static void gd_sn_watcher_v0_init(GDSnWatcherV0* v0)
 {
-    GBusNameOwnerFlags flags = G_BUS_NAME_OWNER_FLAGS_ALLOW_REPLACEMENT | G_BUS_NAME_OWNER_FLAGS_REPLACE;
+    const GBusNameOwnerFlags flags = G_BUS_NAME_OWNER_FLAGS_ALLOW_REPLACEMENT | G_BUS_NAME_OWNER_FLAGS_REPLACE;
 
     v0->busNameId = g_bus_own_name(G_BUS_TYPE_SESSION,
         "org.kde.StatusNotifierWatcher", flags,

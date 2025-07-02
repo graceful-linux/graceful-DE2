@@ -23,18 +23,19 @@ static void gd_notifications_dispose(GObject* object)
     G_OBJECT_CLASS(gd_notifications_parent_class)->dispose(object);
 }
 
-static void gd_notifications_class_init(GDNotificationsClass* notifications_class)
+static void gd_notifications_class_init(GDNotificationsClass* klass)
 {
-    GObjectClass* oc = G_OBJECT_CLASS(notifications_class);
+    GObjectClass* oc = G_OBJECT_CLASS(klass);
     oc->dispose = gd_notifications_dispose;
 }
 
-static void gd_notifications_init(GDNotifications* notifications)
+static void gd_notifications_init(GDNotifications* obj)
 {
-    notifications->daemon = nd_daemon_new();
+    obj->daemon = nd_daemon_new();
 }
 
 GDNotifications* gd_notifications_new(void)
 {
+    g_info("notification");
     return g_object_new(GD_TYPE_NOTIFICATIONS, NULL);
 }

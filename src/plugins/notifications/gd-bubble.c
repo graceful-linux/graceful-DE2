@@ -19,20 +19,18 @@
 
 typedef struct
 {
-    NdNotification* notification;
+    NdNotification*         notification;
 
-    GtkWidget* icon;
-    GtkWidget* content_hbox;
-    GtkWidget* summary_label;
-    GtkWidget* close_button;
-    GtkWidget* body_label;
-    GtkWidget* actions_box;
-
-    bool url_clicked_lock;
-
-    guint timeout_id;
-    gulong changed_id;
-    gulong closed_id;
+    GtkWidget*              icon;
+    GtkWidget*              contentHbox;
+    GtkWidget*              summaryLabel;
+    GtkWidget*              closeButton;
+    GtkWidget*              bodyLabel;
+    GtkWidget*              actionsBox;
+    bool                    urlClickedLock;
+    guint                   timeoutId;
+    gulong                  changedId;
+    gulong                  closedId;
 } GDBubblePrivate;
 
 G_DEFINE_TYPE_WITH_PRIVATE(GDBubble, gd_bubble, GD_TYPE_POPUP_WINDOW)
@@ -51,7 +49,7 @@ static bool activate_link_cb(GtkLabel* label, gchar* uri, GDBubble* bubble)
 
     GDBubblePrivate* priv = gd_bubble_get_instance_private(bubble);
 
-    priv->url_clicked_lock = TRUE;
+    priv->urlClickedLock = TRUE;
 
     error = NULL;
     if (!gtk_show_uri_on_window(GTK_WINDOW(bubble), uri, gtk_get_current_event_time(), &error)) {
@@ -80,7 +78,7 @@ static void add_notification_action(GDBubble* bubble, const gchar* text, const g
     GDBubblePrivate* priv = gd_bubble_get_instance_private(bubble);
 
     GtkWidget* button = gtk_button_new();
-    gtk_box_pack_start(GTK_BOX(priv->actions_box), button, FALSE, FALSE, 0);
+    gtk_box_pack_start(GTK_BOX(priv->actionsBox), button, FALSE, FALSE, 0);
     gtk_widget_show(button);
 
     gtk_button_set_relief(GTK_BUTTON(button), GTK_RELIEF_NONE);
@@ -90,37 +88,31 @@ static void add_notification_action(GDBubble* bubble, const gchar* text, const g
     gtk_container_add(GTK_CONTAINER(button), hbox);
     gtk_widget_show(hbox);
 
-    GdkPixbuf* pixbuf = NULL;
+    GdkPixbuf* pixBuf = NULL;
     if (nd_notification_get_action_icons(priv->notification))
-        pixbuf = gtk_icon_theme_load_icon(gtk_icon_theme_get_default(), key, 20, GTK_ICON_LOOKUP_USE_BUILTIN, NULL);
+        pixBuf = gtk_icon_theme_load_icon(gtk_icon_theme_get_default(), key, 20, GTK_ICON_LOOKUP_USE_BUILTIN, NULL);
 
-    if (pixbuf != NULL) {
-        GtkWidget* image;
-        AtkObject* atkobj;
-
-        image = gtk_image_new_from_pixbuf(pixbuf);
+    if (pixBuf != NULL) {
+        GtkWidget* image = gtk_image_new_from_pixbuf(pixBuf);
         gtk_box_pack_start(GTK_BOX(hbox), image, FALSE, FALSE, 0);
         gtk_widget_show(image);
 
         gtk_widget_set_halign(image, GTK_ALIGN_CENTER);
         gtk_widget_set_valign(image, GTK_ALIGN_CENTER);
 
-        atkobj = gtk_widget_get_accessible(GTK_WIDGET(button));
-        atk_object_set_name(atkobj, text);
+        AtkObject* atkObj = gtk_widget_get_accessible(GTK_WIDGET(button));
+        atk_object_set_name(atkObj, text);
 
-        g_object_unref(pixbuf);
+        g_object_unref(pixBuf);
     }
     else {
-        GtkWidget* label;
-        gchar* buf;
-
-        label = gtk_label_new(NULL);
+        GtkWidget* label = gtk_label_new(NULL);
         gtk_box_pack_start(GTK_BOX(hbox), label, FALSE, FALSE, 0);
         gtk_widget_show(label);
 
         gtk_label_set_xalign(GTK_LABEL(label), 0.0);
 
-        buf = g_strdup_printf("<small>%s</small>", text);
+        gchar* buf = g_strdup_printf("<small>%s</small>", text);
         gtk_label_set_markup(GTK_LABEL(label), buf);
         g_free(buf);
     }
@@ -129,14 +121,14 @@ static void add_notification_action(GDBubble* bubble, const gchar* text, const g
 
     g_signal_connect(button, "button-release-event", G_CALLBACK (button_release_event_cb), bubble);
 
-    gtk_widget_show(priv->actions_box);
+    gtk_widget_show(priv->actionsBox);
 }
 
 static bool timeout_bubble(gpointer userData)
 {
     GDBubble* bubble = GD_BUBBLE(userData);
     GDBubblePrivate* priv = gd_bubble_get_instance_private(bubble);
-    priv->timeout_id = 0;
+    priv->timeoutId = 0;
 
     gtk_widget_destroy(GTK_WIDGET(bubble));
 
@@ -147,9 +139,9 @@ static void add_timeout(GDBubble* bubble)
 {
     GDBubblePrivate* priv = gd_bubble_get_instance_private(bubble);
 
-    if (priv->timeout_id != 0) {
-        g_source_remove(priv->timeout_id);
-        priv->timeout_id = 0;
+    if (priv->timeoutId != 0) {
+        g_source_remove(priv->timeoutId);
+        priv->timeoutId = 0;
     }
 
     gint timeout = nd_notification_get_timeout(priv->notification);
@@ -158,7 +150,7 @@ static void add_timeout(GDBubble* bubble)
 
     if (timeout == EXPIRATION_TIME_DEFAULT) timeout = TIMEOUT_SEC * 1000;
 
-    priv->timeout_id = g_timeout_add(timeout, (void*) timeout_bubble, bubble);
+    priv->timeoutId = g_timeout_add(timeout, (void*) timeout_bubble, bubble);
 }
 
 static void destroy_widget(GtkWidget* widget, gpointer uData)
@@ -178,27 +170,27 @@ static void update_bubble(GDBubble* bubble)
     gchar* str = g_strdup_printf("<b><big>%s</big></b>", quoted);
     g_free(quoted);
 
-    gtk_label_set_markup(GTK_LABEL(priv->summary_label), str);
+    gtk_label_set_markup(GTK_LABEL(priv->summaryLabel), str);
     g_free(str);
 
     /* Body label */
     const gchar* body = nd_notification_get_body(priv->notification);
     if (validate_markup(body)) {
-        gtk_label_set_markup(GTK_LABEL(priv->body_label), body);
+        gtk_label_set_markup(GTK_LABEL(priv->bodyLabel), body);
     }
     else {
         str = g_markup_escape_text(body, -1);
 
-        gtk_label_set_text(GTK_LABEL(priv->body_label), str);
+        gtk_label_set_text(GTK_LABEL(priv->bodyLabel), str);
         g_free(str);
     }
 
     bool haveBody = body && *body != '\0';
-    gtk_widget_set_visible(priv->body_label, haveBody);
+    gtk_widget_set_visible(priv->bodyLabel, haveBody);
 
     /* Actions */
     bool haveActions = FALSE;
-    gtk_container_foreach(GTK_CONTAINER(priv->actions_box), destroy_widget, NULL);
+    gtk_container_foreach(GTK_CONTAINER(priv->actionsBox), destroy_widget, NULL);
 
     gchar** actions = nd_notification_get_actions(priv->notification);
 
@@ -214,7 +206,7 @@ static void update_bubble(GDBubble* bubble)
         }
     }
 
-    gtk_widget_set_visible(priv->actions_box, haveActions);
+    gtk_widget_set_visible(priv->actionsBox, haveActions);
 
     /* Icon */
     GIcon* icon = nd_notification_get_icon(priv->notification);
@@ -229,8 +221,8 @@ static void update_bubble(GDBubble* bubble)
         gtk_widget_set_size_request(priv->icon, BODY_X_OFFSET, -1);
     }
 
-    if (haveBody || haveActions || haveIcon) gtk_widget_show(priv->content_hbox);
-    else gtk_widget_hide(priv->content_hbox);
+    if (haveBody || haveActions || haveIcon) gtk_widget_show(priv->contentHbox);
+    else gtk_widget_hide(priv->contentHbox);
 
     add_timeout(bubble);
 }
@@ -250,19 +242,19 @@ static void gd_bubble_dispose(GObject* object)
     GDBubble* bubble = GD_BUBBLE(object);
     GDBubblePrivate* priv = gd_bubble_get_instance_private(bubble);
 
-    if (priv->timeout_id != 0) {
-        g_source_remove(priv->timeout_id);
-        priv->timeout_id = 0;
+    if (priv->timeoutId != 0) {
+        g_source_remove(priv->timeoutId);
+        priv->timeoutId = 0;
     }
 
-    if (priv->changed_id != 0) {
-        g_signal_handler_disconnect(priv->notification, priv->changed_id);
-        priv->changed_id = 0;
+    if (priv->changedId != 0) {
+        g_signal_handler_disconnect(priv->notification, priv->changedId);
+        priv->changedId = 0;
     }
 
-    if (priv->closed_id != 0) {
-        g_signal_handler_disconnect(priv->notification, priv->closed_id);
-        priv->closed_id = 0;
+    if (priv->closedId != 0) {
+        g_signal_handler_disconnect(priv->notification, priv->closedId);
+        priv->closedId = 0;
     }
 
     G_OBJECT_CLASS(gd_bubble_parent_class)->dispose(object);
@@ -285,8 +277,8 @@ static bool gd_bubble_button_release_event(GtkWidget* widget, GdkEventButton* ev
 
     const bool retVal = GTK_WIDGET_CLASS(gd_bubble_parent_class)->button_release_event(widget, event);
 
-    if (priv->url_clicked_lock) {
-        priv->url_clicked_lock = FALSE;
+    if (priv->urlClickedLock) {
+        priv->urlClickedLock = FALSE;
         return retVal;
     }
 
@@ -397,76 +389,76 @@ static void gd_bubble_init(GDBubble* bubble)
 
     /* Close button */
 
-    priv->close_button = gtk_button_new();
-    gtk_box_pack_start(GTK_BOX(main_hbox), priv->close_button, FALSE, FALSE, 0);
-    gtk_widget_show(priv->close_button);
+    priv->closeButton = gtk_button_new();
+    gtk_box_pack_start(GTK_BOX(main_hbox), priv->closeButton, FALSE, FALSE, 0);
+    gtk_widget_show(priv->closeButton);
 
-    gtk_button_set_relief(GTK_BUTTON(priv->close_button), GTK_RELIEF_NONE);
-    gtk_widget_set_valign(priv->close_button, GTK_ALIGN_START);
+    gtk_button_set_relief(GTK_BUTTON(priv->closeButton), GTK_RELIEF_NONE);
+    gtk_widget_set_valign(priv->closeButton, GTK_ALIGN_START);
 
-    g_signal_connect(priv->close_button, "clicked", G_CALLBACK (close_button_clicked_cb), bubble);
+    g_signal_connect(priv->closeButton, "clicked", G_CALLBACK (close_button_clicked_cb), bubble);
 
-    atkobj = gtk_widget_get_accessible(priv->close_button);
+    atkobj = gtk_widget_get_accessible(priv->closeButton);
     atk_object_set_description(atkobj, _("Closes the notification."));
     atk_object_set_name(atkobj, "");
 
     atk_action_set_description(ATK_ACTION(atkobj), 0, _("Closes the notification."));
 
     image = gtk_image_new_from_icon_name("window-close-symbolic", GTK_ICON_SIZE_MENU);
-    gtk_container_add(GTK_CONTAINER(priv->close_button), image);
+    gtk_container_add(GTK_CONTAINER(priv->closeButton), image);
     gtk_widget_show(image);
 
     /* Summary label */
 
-    priv->summary_label = gtk_label_new(NULL);
-    gtk_box_pack_start(GTK_BOX(vbox), priv->summary_label, TRUE, TRUE, 0);
-    gtk_widget_show(priv->summary_label);
+    priv->summaryLabel = gtk_label_new(NULL);
+    gtk_box_pack_start(GTK_BOX(vbox), priv->summaryLabel, TRUE, TRUE, 0);
+    gtk_widget_show(priv->summaryLabel);
 
-    gtk_label_set_line_wrap(GTK_LABEL(priv->summary_label), TRUE);
-    gtk_label_set_line_wrap_mode(GTK_LABEL(priv->summary_label), PANGO_WRAP_WORD_CHAR);
+    gtk_label_set_line_wrap(GTK_LABEL(priv->summaryLabel), TRUE);
+    gtk_label_set_line_wrap_mode(GTK_LABEL(priv->summaryLabel), PANGO_WRAP_WORD_CHAR);
 
-    gtk_label_set_xalign(GTK_LABEL(priv->summary_label), 0.0);
-    gtk_label_set_yalign(GTK_LABEL(priv->summary_label), 0.0);
+    gtk_label_set_xalign(GTK_LABEL(priv->summaryLabel), 0.0);
+    gtk_label_set_yalign(GTK_LABEL(priv->summaryLabel), 0.0);
 
-    atkobj = gtk_widget_get_accessible(priv->summary_label);
+    atkobj = gtk_widget_get_accessible(priv->summaryLabel);
     atk_object_set_description(atkobj, _("Notification summary text."));
 
     /* Content hbox */
 
-    priv->content_hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
-    gtk_box_pack_start(GTK_BOX(vbox), priv->content_hbox, FALSE, FALSE, 0);
-    gtk_widget_show(priv->content_hbox);
+    priv->contentHbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
+    gtk_box_pack_start(GTK_BOX(vbox), priv->contentHbox, FALSE, FALSE, 0);
+    gtk_widget_show(priv->contentHbox);
 
     /* Vbox */
 
     vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 6);
-    gtk_box_pack_start(GTK_BOX(priv->content_hbox), vbox, TRUE, TRUE, 0);
+    gtk_box_pack_start(GTK_BOX(priv->contentHbox), vbox, TRUE, TRUE, 0);
     gtk_widget_show(vbox);
 
     /* Body label */
 
-    priv->body_label = gtk_label_new(NULL);
-    gtk_box_pack_start(GTK_BOX(vbox), priv->body_label, TRUE, TRUE, 0);
-    gtk_widget_show(priv->body_label);
+    priv->bodyLabel = gtk_label_new(NULL);
+    gtk_box_pack_start(GTK_BOX(vbox), priv->bodyLabel, TRUE, TRUE, 0);
+    gtk_widget_show(priv->bodyLabel);
 
-    gtk_label_set_line_wrap(GTK_LABEL(priv->body_label), TRUE);
-    gtk_label_set_line_wrap_mode(GTK_LABEL(priv->body_label), PANGO_WRAP_WORD_CHAR);
+    gtk_label_set_line_wrap(GTK_LABEL(priv->bodyLabel), TRUE);
+    gtk_label_set_line_wrap_mode(GTK_LABEL(priv->bodyLabel), PANGO_WRAP_WORD_CHAR);
 
-    gtk_label_set_xalign(GTK_LABEL(priv->body_label), 0.0);
-    gtk_label_set_yalign(GTK_LABEL(priv->body_label), 0.0);
+    gtk_label_set_xalign(GTK_LABEL(priv->bodyLabel), 0.0);
+    gtk_label_set_yalign(GTK_LABEL(priv->bodyLabel), 0.0);
 
-    g_signal_connect(priv->body_label, "activate-link", G_CALLBACK (activate_link_cb), bubble);
+    g_signal_connect(priv->bodyLabel, "activate-link", G_CALLBACK (activate_link_cb), bubble);
 
-    atkobj = gtk_widget_get_accessible(priv->body_label);
+    atkobj = gtk_widget_get_accessible(priv->bodyLabel);
     atk_object_set_description(atkobj, _("Notification summary text."));
 
     /* Actions box */
 
-    priv->actions_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
-    gtk_box_pack_start(GTK_BOX(vbox), priv->actions_box, FALSE, TRUE, 0);
-    gtk_widget_show(priv->actions_box);
+    priv->actionsBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
+    gtk_box_pack_start(GTK_BOX(vbox), priv->actionsBox, FALSE, TRUE, 0);
+    gtk_widget_show(priv->actionsBox);
 
-    gtk_widget_set_halign(priv->actions_box, GTK_ALIGN_END);
+    gtk_widget_set_halign(priv->actionsBox, GTK_ALIGN_END);
 }
 
 GDBubble* gd_bubble_new_for_notification(NdNotification* notification)
@@ -476,8 +468,8 @@ GDBubble* gd_bubble_new_for_notification(NdNotification* notification)
     GDBubblePrivate* priv = gd_bubble_get_instance_private(bubble);
 
     priv->notification = g_object_ref(notification);
-    priv->changed_id = g_signal_connect(notification, "changed", G_CALLBACK (notification_changed_cb), bubble);
-    priv->closed_id = g_signal_connect(notification, "closed", G_CALLBACK (notification_closed_cb), bubble);
+    priv->changedId = g_signal_connect(notification, "changed", G_CALLBACK (notification_changed_cb), bubble);
+    priv->closedId = g_signal_connect(notification, "closed", G_CALLBACK (notification_closed_cb), bubble);
 
     update_bubble(bubble);
 
