@@ -24,18 +24,18 @@
 
 struct _GDMonitorManagerXrandr
 {
-    GDMonitorManager parent;
+    GDMonitorManager    parent;
 
-    Display* xdisplay;
-    Window xroot;
+    Display*            xdisplay;
+    Window              xroot;
 
-    gint rr_event_base;
-    gint rr_error_base;
+    gint                rr_event_base;
+    gint                rr_error_base;
 
-    bool has_randr15;
-    GHashTable* tiled_monitor_atoms;
+    bool                has_randr15;
+    GHashTable*         tiled_monitor_atoms;
 
-    Time last_xrandr_set_timestamp;
+    Time                last_xrandr_set_timestamp;
 };
 
 typedef struct
@@ -410,17 +410,12 @@ increase_monitor_count(GDMonitorManagerXrandr* xrandr, Atom name_atom)
     g_hash_table_insert(atoms, key, GINT_TO_POINTER(count));
 }
 
-static gint
-decrease_monitor_count(GDMonitorManagerXrandr* xrandr, Atom name_atom)
+static gint decrease_monitor_count(GDMonitorManagerXrandr* xrandr, Atom nameAtom)
 {
-    GHashTable* atoms;
-    gpointer key;
-    gint count;
+    GHashTable* atoms = xrandr->tiled_monitor_atoms;
+    gpointer key = GSIZE_TO_POINTER(nameAtom);
 
-    atoms = xrandr->tiled_monitor_atoms;
-    key = GSIZE_TO_POINTER(name_atom);
-
-    count = GPOINTER_TO_SIZE(g_hash_table_lookup(atoms, key));
+    gint count = GPOINTER_TO_SIZE(g_hash_table_lookup(atoms, key));
     count--;
 
     g_hash_table_insert(atoms, key, GINT_TO_POINTER(count));
@@ -428,18 +423,13 @@ decrease_monitor_count(GDMonitorManagerXrandr* xrandr, Atom name_atom)
     return count;
 }
 
-static void
-init_monitors(GDMonitorManagerXrandr* xrandr)
+static void init_monitors(GDMonitorManagerXrandr* xrandr)
 {
-    XRRMonitorInfo* m;
-    gint n, i;
+    gint n = 0, i = 0;
 
-    if (xrandr->has_randr15 == FALSE) return;
+    C_RETURN_IF_FAIL(xrandr->has_randr15);
 
-    /* Delete any tiled monitors setup, as gnome-fashback will want to
-     * recreate things in its image.
-     */
-    m = XRRGetMonitors(xrandr->xdisplay, xrandr->xroot, FALSE, &n);
+    XRRMonitorInfo* m = XRRGetMonitors(xrandr->xdisplay, xrandr->xroot, FALSE, &n);
 
     if (n == -1) return;
 
@@ -448,81 +438,65 @@ init_monitors(GDMonitorManagerXrandr* xrandr)
             XRRDeleteMonitor(xrandr->xdisplay, xrandr->xroot, m[i].name);
         }
     }
-
     XRRFreeMonitors(m);
 }
 
-static void
-gd_monitor_manager_xrandr_constructed(GObject* object)
+static void gd_monitor_manager_xrandr_constructed(GObject* object)
 {
-    GDMonitorManagerXrandr* xrandr;
-    GDBackend* backend;
-    gint rr_event_base;
-    gint rr_error_base;
+    gint rrEventBase;
+    gint rrErrorBase;
 
-    xrandr = GD_MONITOR_MANAGER_XRANDR(object);
-    backend = gd_monitor_manager_get_backend(GD_MONITOR_MANAGER(xrandr));
+    GDMonitorManagerXrandr* xrandr = GD_MONITOR_MANAGER_XRANDR(object);
+    GDBackend* backend = gd_monitor_manager_get_backend(GD_MONITOR_MANAGER(xrandr));
 
     xrandr->xdisplay = gd_backend_x11_get_xdisplay(GD_BACKEND_X11(backend));
     xrandr->xroot = DefaultRootWindow(xrandr->xdisplay);
 
-    if (XRRQueryExtension(xrandr->xdisplay, &rr_event_base, &rr_error_base)) {
-        gint major_version;
-        gint minor_version;
+    if (XRRQueryExtension(xrandr->xdisplay, &rrEventBase, &rrErrorBase)) {
+        gint majorVersion;
+        gint minorVersion;
 
-        xrandr->rr_event_base = rr_event_base;
-        xrandr->rr_error_base = rr_error_base;
+        xrandr->rr_event_base = rrEventBase;
+        xrandr->rr_error_base = rrErrorBase;
 
-        /* We only use ScreenChangeNotify, but GDK uses the others,
-         * and we don't want to step on its toes.
-         */
         XRRSelectInput(xrandr->xdisplay, xrandr->xroot, RRScreenChangeNotifyMask | RRCrtcChangeNotifyMask | RROutputPropertyNotifyMask);
-
-        XRRQueryVersion(xrandr->xdisplay, &major_version, &minor_version);
+        XRRQueryVersion(xrandr->xdisplay, &majorVersion, &minorVersion);
 
         xrandr->has_randr15 = FALSE;
-        if (major_version > 1 || (major_version == 1 && minor_version >= 5)) {
+        if (majorVersion > 1 || (majorVersion == 1 && minorVersion >= 5)) {
             xrandr->has_randr15 = TRUE;
             xrandr->tiled_monitor_atoms = g_hash_table_new(NULL, NULL);
         }
-
         init_monitors(xrandr);
     }
 
     G_OBJECT_CLASS(gd_monitor_manager_xrandr_parent_class)->constructed(object);
 }
 
-static void
-gd_monitor_manager_xrandr_dispose(GObject* object)
+static void gd_monitor_manager_xrandr_dispose(GObject* object)
 {
-    GDMonitorManagerXrandr* xrandr;
-
-    xrandr = GD_MONITOR_MANAGER_XRANDR(object);
+    GDMonitorManagerXrandr* xrandr = GD_MONITOR_MANAGER_XRANDR(object);
 
     g_clear_pointer(&xrandr->tiled_monitor_atoms, g_hash_table_destroy);
 
     G_OBJECT_CLASS(gd_monitor_manager_xrandr_parent_class)->dispose(object);
 }
 
-static GBytes*
-gd_monitor_manager_xrandr_read_edid(GDMonitorManager* manager, GDOutput* output)
+static GBytes* gd_monitor_manager_xrandr_read_edid(GDMonitorManager* manager, GDOutput* output)
 {
     return gd_output_xrandr_read_edid(GD_OUTPUT_XRANDR(output));
 }
 
-static void
-gd_monitor_manager_xrandr_read_current_state(GDMonitorManager* manager)
+static void gd_monitor_manager_xrandr_read_current_state(GDMonitorManager* manager)
 {
-    GDMonitorManagerXrandr* self;
-    CARD16 dpms_state;
-    BOOL dpms_enabled;
+    CARD16 dpmsState;
+    BOOL dpmsEnabled;
     GDPowerSave power_save_mode;
-    GDMonitorManagerClass* parent_class;
 
-    self = GD_MONITOR_MANAGER_XRANDR(manager);
+    GDMonitorManagerXrandr* self = GD_MONITOR_MANAGER_XRANDR(manager);
 
-    if (DPMSCapable(self->xdisplay) && DPMSInfo(self->xdisplay, &dpms_state, &dpms_enabled) && dpms_enabled) {
-        switch (dpms_state) {
+    if (DPMSCapable(self->xdisplay) && DPMSInfo(self->xdisplay, &dpmsState, &dpmsEnabled) && dpmsEnabled) {
+        switch (dpmsState) {
         case DPMSModeOn:
             power_save_mode = GD_POWER_SAVE_ON;
             break;
@@ -550,75 +524,57 @@ gd_monitor_manager_xrandr_read_current_state(GDMonitorManager* manager)
 
     gd_monitor_manager_power_save_mode_changed(manager, power_save_mode);
 
-    parent_class = GD_MONITOR_MANAGER_CLASS(gd_monitor_manager_xrandr_parent_class);
-    parent_class->read_current_state(manager);
+    GDMonitorManagerClass* pc = GD_MONITOR_MANAGER_CLASS(gd_monitor_manager_xrandr_parent_class);
+    pc->read_current_state(manager);
 }
 
-static void
-gd_monitor_manager_xrandr_ensure_initial_config(GDMonitorManager* manager)
+static void gd_monitor_manager_xrandr_ensure_initial_config(GDMonitorManager* manager)
 {
-    GDMonitorConfigManager* config_manager;
-    GDMonitorsConfig* config;
-
     gd_monitor_manager_ensure_configured(manager);
 
-    /* Normally we don't rebuild our data structures until we see the
-     * RRScreenNotify event, but at least at startup we want to have the
-     * right configuration immediately.
-     */
     gd_monitor_manager_read_current_state(manager);
 
-    config_manager = gd_monitor_manager_get_config_manager(manager);
-    config = gd_monitor_config_manager_get_current(config_manager);
+    GDMonitorConfigManager* cm = gd_monitor_manager_get_config_manager(manager);
+    GDMonitorsConfig* config = gd_monitor_config_manager_get_current(cm);
 
     gd_monitor_manager_update_logical_state_derived(manager, config);
 }
 
-static bool
-gd_monitor_manager_xrandr_apply_monitors_config(GDMonitorManager* manager, GDMonitorsConfig* config, GDMonitorsConfigMethod method, GError** error)
+static bool gd_monitor_manager_xrandr_apply_monitors_config(GDMonitorManager* manager, GDMonitorsConfig* config, GDMonitorsConfigMethod method, GError** error)
 {
-    GPtrArray* crtc_assignments;
-    GPtrArray* output_assignments;
+    GPtrArray* crtcAssignments;
+    GPtrArray* outputAssignments;
 
     if (!config) {
-        if (!manager->in_init) apply_crtc_assignments(manager, TRUE, NULL, 0, NULL, 0);
-
+        if (!manager->in_init) {
+            apply_crtc_assignments(manager, TRUE, NULL, 0, NULL, 0);
+        }
         gd_monitor_manager_rebuild_derived(manager, NULL);
-        return TRUE;
+        return true;
     }
 
-    if (!gd_monitor_config_manager_assign(manager, config, &crtc_assignments, &output_assignments, error)) return FALSE;
+    C_RETURN_VAL_IF_FAIL(gd_monitor_config_manager_assign(manager, config, &crtcAssignments, &outputAssignments, error), false);
 
     if (method != GD_MONITORS_CONFIG_METHOD_VERIFY) {
-        /*
-         * If the assignment has not changed, we won't get any notification about
-         * any new configuration from the X server; but we still need to update
-         * our own configuration, as something not applicable in Xrandr might
-         * have changed locally, such as the logical monitors scale. This means we
-         * must check that our new assignment actually changes anything, otherwise
-         * just update the logical state.
-         */
-        if (is_assignments_changed(manager, (GDCrtcAssignment**)crtc_assignments->pdata, crtc_assignments->len, (GDOutputAssignment**)output_assignments->pdata, output_assignments->len)) {
-            apply_crtc_assignments(manager, TRUE, (GDCrtcAssignment**)crtc_assignments->pdata, crtc_assignments->len, (GDOutputAssignment**)output_assignments->pdata, output_assignments->len);
+        if (is_assignments_changed(manager, (GDCrtcAssignment**)crtcAssignments->pdata, crtcAssignments->len, (GDOutputAssignment**)outputAssignments->pdata, outputAssignments->len)) {
+            apply_crtc_assignments(manager, TRUE, (GDCrtcAssignment**)crtcAssignments->pdata, crtcAssignments->len, (GDOutputAssignment**)outputAssignments->pdata, outputAssignments->len);
         }
         else {
             gd_monitor_manager_rebuild_derived(manager, config);
         }
     }
 
-    g_ptr_array_free(crtc_assignments, TRUE);
-    g_ptr_array_free(output_assignments, TRUE);
+    g_ptr_array_free(crtcAssignments, TRUE);
+    g_ptr_array_free(outputAssignments, TRUE);
 
     return TRUE;
 }
 
-static void
-gd_monitor_manager_xrandr_set_power_save_mode(GDMonitorManager* manager, GDPowerSave mode)
+static void gd_monitor_manager_xrandr_set_power_save_mode(GDMonitorManager* manager, GDPowerSave mode)
 {
-    GDMonitorManagerXrandr* xrandr;
     CARD16 state;
 
-    xrandr = GD_MONITOR_MANAGER_XRANDR(manager);
+    GDMonitorManagerXrandr* xrandr = GD_MONITOR_MANAGER_XRANDR(manager);
 
     switch (mode) {
     case GD_POWER_SAVE_ON:
@@ -645,14 +601,10 @@ gd_monitor_manager_xrandr_set_power_save_mode(GDMonitorManager* manager, GDPower
     DPMSSetTimeouts(xrandr->xdisplay, 0, 0, 0);
 }
 
-static void
-gd_monitor_manager_xrandr_get_crtc_gamma(GDMonitorManager* manager, GDCrtc* crtc, gsize* size, gushort** red, gushort** green, gushort** blue)
+static void gd_monitor_manager_xrandr_get_crtc_gamma(GDMonitorManager* manager, GDCrtc* crtc, gsize* size, gushort** red, gushort** green, gushort** blue)
 {
-    GDMonitorManagerXrandr* xrandr;
-    XRRCrtcGamma* gamma;
-
-    xrandr = GD_MONITOR_MANAGER_XRANDR(manager);
-    gamma = XRRGetCrtcGamma(xrandr->xdisplay, (XID)gd_crtc_get_id(crtc));
+    GDMonitorManagerXrandr* xrandr = GD_MONITOR_MANAGER_XRANDR(manager);
+    XRRCrtcGamma* gamma = XRRGetCrtcGamma(xrandr->xdisplay, (XID)gd_crtc_get_id(crtc));
 
     if (size) *size = gamma->size;
 
@@ -665,15 +617,11 @@ gd_monitor_manager_xrandr_get_crtc_gamma(GDMonitorManager* manager, GDCrtc* crtc
     XRRFreeGamma(gamma);
 }
 
-static void
-gd_monitor_manager_xrandr_set_crtc_gamma(GDMonitorManager* manager, GDCrtc* crtc, gsize size, gushort* red, gushort* green, gushort* blue)
+static void gd_monitor_manager_xrandr_set_crtc_gamma(GDMonitorManager* manager, GDCrtc* crtc, gsize size, gushort* red, gushort* green, gushort* blue)
 {
-    GDMonitorManagerXrandr* xrandr;
-    XRRCrtcGamma* gamma;
+    GDMonitorManagerXrandr* xrandr = GD_MONITOR_MANAGER_XRANDR(manager);
 
-    xrandr = GD_MONITOR_MANAGER_XRANDR(manager);
-
-    gamma = XRRAllocGamma(size);
+    XRRCrtcGamma* gamma = XRRAllocGamma(size);
     memcpy(gamma->red, red, sizeof (gushort) * size);
     memcpy(gamma->green, green, sizeof (gushort) * size);
     memcpy(gamma->blue, blue, sizeof (gushort) * size);
@@ -682,221 +630,170 @@ gd_monitor_manager_xrandr_set_crtc_gamma(GDMonitorManager* manager, GDCrtc* crtc
     XRRFreeGamma(gamma);
 }
 
-static void
-gd_monitor_manager_xrandr_tiled_monitor_added(GDMonitorManager* manager, GDMonitor* monitor)
+static void gd_monitor_manager_xrandr_tiled_monitor_added(GDMonitorManager* manager, GDMonitor* monitor)
 {
-    GDMonitorManagerXrandr* xrandr;
-    GDMonitorTiled* monitor_tiled;
-    const gchar* product;
-    uint32_t tile_group_id;
     gchar* name;
-    Atom name_atom;
-    GDMonitorData* data;
-    GList* outputs;
-    XRRMonitorInfo* monitor_info;
     GList* l;
     gint i;
 
-    xrandr = GD_MONITOR_MANAGER_XRANDR(manager);
+    GDMonitorManagerXrandr* xrandr = GD_MONITOR_MANAGER_XRANDR(manager);
+    C_RETURN_IF_FAIL(xrandr->has_randr15);
 
-    if (xrandr->has_randr15 == FALSE) return;
+    GDMonitorTiled* monitorTiled = GD_MONITOR_TILED(monitor);
+    const gchar* product = gd_monitor_get_product(monitor);
+    const uint32_t tileGroupId = gd_monitor_tiled_get_tile_group_id(monitorTiled);
 
-    monitor_tiled = GD_MONITOR_TILED(monitor);
-    product = gd_monitor_get_product(monitor);
-    tile_group_id = gd_monitor_tiled_get_tile_group_id(monitor_tiled);
+    if (product) name = g_strdup_printf("%s-%d", product, tileGroupId);
+    else name = g_strdup_printf("Tiled-%d", tileGroupId);
 
-    if (product) name = g_strdup_printf("%s-%d", product, tile_group_id);
-    else name = g_strdup_printf("Tiled-%d", tile_group_id);
-
-    name_atom = XInternAtom(xrandr->xdisplay, name, False);
+    const Atom nameAtom = XInternAtom(xrandr->xdisplay, name, False);
     g_free(name);
 
-    data = data_from_monitor(monitor);
-    data->xrandr_name = name_atom;
+    GDMonitorData* data = data_from_monitor(monitor);
+    data->xrandr_name = nameAtom;
 
-    increase_monitor_count(xrandr, name_atom);
+    increase_monitor_count(xrandr, nameAtom);
 
-    outputs = gd_monitor_get_outputs(monitor);
-    monitor_info = XRRAllocateMonitor(xrandr->xdisplay, g_list_length(outputs));
-
-    monitor_info->name = name_atom;
-    monitor_info->primary = gd_monitor_is_primary(monitor);
-    monitor_info->automatic = True;
+    GList* outputs = gd_monitor_get_outputs(monitor);
+    XRRMonitorInfo* monitorInfo = XRRAllocateMonitor(xrandr->xdisplay, g_list_length(outputs));
+    monitorInfo->name = nameAtom;
+    monitorInfo->primary = gd_monitor_is_primary(monitor);
+    monitorInfo->automatic = True;
 
     for (l = outputs, i = 0; l; l = l->next, i++) {
         GDOutput* output = l->data;
-
-        monitor_info->outputs[i] = gd_output_get_id(output);
+        monitorInfo->outputs[i] = gd_output_get_id(output);
     }
 
-    XRRSetMonitor(xrandr->xdisplay, xrandr->xroot, monitor_info);
-    XRRFreeMonitors(monitor_info);
+    XRRSetMonitor(xrandr->xdisplay, xrandr->xroot, monitorInfo);
+    XRRFreeMonitors(monitorInfo);
 }
 
-static void
-gd_monitor_manager_xrandr_tiled_monitor_removed(GDMonitorManager* manager, GDMonitor* monitor)
+static void gd_monitor_manager_xrandr_tiled_monitor_removed(GDMonitorManager* manager, GDMonitor* monitor)
 {
-    GDMonitorManagerXrandr* xrandr;
-    GDMonitorData* data;
-    gint monitor_count;
+    GDMonitorManagerXrandr* xrandr = GD_MONITOR_MANAGER_XRANDR(manager);
 
-    xrandr = GD_MONITOR_MANAGER_XRANDR(manager);
+    C_RETURN_IF_FAIL(xrandr->has_randr15);
 
-    if (xrandr->has_randr15 == FALSE) return;
-
-    data = data_from_monitor(monitor);
-    monitor_count = decrease_monitor_count(xrandr, data->xrandr_name);
-
-    if (monitor_count == 0) {
+    const GDMonitorData* data = data_from_monitor(monitor);
+    const gint mc = decrease_monitor_count(xrandr, data->xrandr_name);
+    if (mc == 0) {
         XRRDeleteMonitor(xrandr->xdisplay, xrandr->xroot, data->xrandr_name);
     }
 }
 
-static bool
-gd_monitor_manager_xrandr_is_transform_handled(GDMonitorManager* manager, GDCrtc* crtc, GDMonitorTransform transform)
+static bool gd_monitor_manager_xrandr_is_transform_handled(GDMonitorManager* manager, GDCrtc* crtc, GDMonitorTransform transform)
 {
     g_warn_if_fail((gd_crtc_get_all_transforms(crtc) & transform) == transform);
 
     return TRUE;
 }
 
-static gfloat
-gd_monitor_manager_xrandr_calculate_monitor_mode_scale(GDMonitorManager* manager, GDLogicalMonitorLayoutMode layout_mode, GDMonitor* monitor, GDMonitorMode* monitor_mode)
+static gfloat gd_monitor_manager_xrandr_calculate_monitor_mode_scale(GDMonitorManager* manager, GDLogicalMonitorLayoutMode layoutMode, GDMonitor* monitor, GDMonitorMode* monitorMode)
 {
-    GDMonitorScalesConstraint constraints;
+    GDMonitorScalesConstraint constraints = GD_MONITOR_SCALES_CONSTRAINT_NO_FRAC;
 
-    constraints = GD_MONITOR_SCALES_CONSTRAINT_NO_FRAC;
-
-    return gd_monitor_calculate_mode_scale(monitor, monitor_mode, constraints);
+    return gd_monitor_calculate_mode_scale(monitor, monitorMode, constraints);
 }
 
-static gfloat*
-gd_monitor_manager_xrandr_calculate_supported_scales(GDMonitorManager* manager, GDLogicalMonitorLayoutMode layout_mode, GDMonitor* monitor, GDMonitorMode* monitor_mode, gint* n_supported_scales)
+static gfloat* gd_monitor_manager_xrandr_calculate_supported_scales(GDMonitorManager* manager, GDLogicalMonitorLayoutMode layoutMode, GDMonitor* monitor, GDMonitorMode* monitorMode, gint* nSupportedScales)
 {
-    GDMonitorScalesConstraint constraints;
+    GDMonitorScalesConstraint constraints = GD_MONITOR_SCALES_CONSTRAINT_NO_FRAC;
 
-    constraints = GD_MONITOR_SCALES_CONSTRAINT_NO_FRAC;
-
-    return gd_monitor_calculate_supported_scales(monitor, monitor_mode, constraints, n_supported_scales);
+    return gd_monitor_calculate_supported_scales(monitor, monitorMode, constraints, nSupportedScales);
 }
 
-static GDMonitorManagerCapability
-gd_monitor_manager_xrandr_get_capabilities(GDMonitorManager* manager)
+static GDMonitorManagerCapability gd_monitor_manager_xrandr_get_capabilities(GDMonitorManager* manager)
 {
     return GD_MONITOR_MANAGER_CAPABILITY_GLOBAL_SCALE_REQUIRED;
 }
 
-static bool
-gd_monitor_manager_xrandr_get_max_screen_size(GDMonitorManager* manager, gint* max_width, gint* max_height)
+static bool gd_monitor_manager_xrandr_get_max_screen_size(GDMonitorManager* manager, gint* max_width, gint* max_height)
 {
-    GDMonitorManagerXrandr* xrandr;
-    GDGpu* gpu;
-
-    xrandr = GD_MONITOR_MANAGER_XRANDR(manager);
-    gpu = get_gpu(xrandr);
+    GDMonitorManagerXrandr* xrandr = GD_MONITOR_MANAGER_XRANDR(manager);
+    GDGpu* gpu = get_gpu(xrandr);
 
     gd_gpu_xrandr_get_max_screen_size(GD_GPU_XRANDR(gpu), max_width, max_height);
 
-    return TRUE;
+    return true;
 }
 
-static GDLogicalMonitorLayoutMode
-gd_monitor_manager_xrandr_get_default_layout_mode(GDMonitorManager* manager)
+static GDLogicalMonitorLayoutMode gd_monitor_manager_xrandr_get_default_layout_mode(GDMonitorManager* manager)
 {
     return GD_LOGICAL_MONITOR_LAYOUT_MODE_PHYSICAL;
 }
 
-static void
-gd_monitor_manager_xrandr_set_output_ctm(GDOutput* output, const GDOutputCtm* ctm)
+static void gd_monitor_manager_xrandr_set_output_ctm(GDOutput* output, const GDOutputCtm* ctm)
 {
     gd_output_xrandr_set_ctm(GD_OUTPUT_XRANDR(output), ctm);
 }
 
-static void
-gd_monitor_manager_xrandr_class_init(GDMonitorManagerXrandrClass* xrandr_class)
+static void gd_monitor_manager_xrandr_class_init(GDMonitorManagerXrandrClass* xrandr_class)
 {
-    GObjectClass* object_class;
-    GDMonitorManagerClass* manager_class;
 
-    object_class = G_OBJECT_CLASS(xrandr_class);
-    manager_class = GD_MONITOR_MANAGER_CLASS(xrandr_class);
+    GObjectClass* oc = G_OBJECT_CLASS(xrandr_class);
+    GDMonitorManagerClass* mc = GD_MONITOR_MANAGER_CLASS(xrandr_class);
 
-    object_class->constructed = gd_monitor_manager_xrandr_constructed;
-    object_class->dispose = gd_monitor_manager_xrandr_dispose;
+    oc->constructed = gd_monitor_manager_xrandr_constructed;
+    oc->dispose = gd_monitor_manager_xrandr_dispose;
 
-    manager_class->read_edid = gd_monitor_manager_xrandr_read_edid;
-    manager_class->read_current_state = gd_monitor_manager_xrandr_read_current_state;
-    manager_class->ensure_initial_config = gd_monitor_manager_xrandr_ensure_initial_config;
-    manager_class->apply_monitors_config = gd_monitor_manager_xrandr_apply_monitors_config;
-    manager_class->set_power_save_mode = gd_monitor_manager_xrandr_set_power_save_mode;
-    manager_class->get_crtc_gamma = gd_monitor_manager_xrandr_get_crtc_gamma;
-    manager_class->set_crtc_gamma = gd_monitor_manager_xrandr_set_crtc_gamma;
-    manager_class->tiled_monitor_added = gd_monitor_manager_xrandr_tiled_monitor_added;
-    manager_class->tiled_monitor_removed = gd_monitor_manager_xrandr_tiled_monitor_removed;
-    manager_class->is_transform_handled = gd_monitor_manager_xrandr_is_transform_handled;
-    manager_class->calculate_monitor_mode_scale = gd_monitor_manager_xrandr_calculate_monitor_mode_scale;
-    manager_class->calculate_supported_scales = gd_monitor_manager_xrandr_calculate_supported_scales;
-    manager_class->get_capabilities = gd_monitor_manager_xrandr_get_capabilities;
-    manager_class->get_max_screen_size = gd_monitor_manager_xrandr_get_max_screen_size;
-    manager_class->get_default_layout_mode = gd_monitor_manager_xrandr_get_default_layout_mode;
-    manager_class->set_output_ctm = gd_monitor_manager_xrandr_set_output_ctm;
+    mc->read_edid = gd_monitor_manager_xrandr_read_edid;
+    mc->read_current_state = gd_monitor_manager_xrandr_read_current_state;
+    mc->ensure_initial_config = gd_monitor_manager_xrandr_ensure_initial_config;
+    mc->apply_monitors_config = gd_monitor_manager_xrandr_apply_monitors_config;
+    mc->set_power_save_mode = gd_monitor_manager_xrandr_set_power_save_mode;
+    mc->get_crtc_gamma = gd_monitor_manager_xrandr_get_crtc_gamma;
+    mc->set_crtc_gamma = gd_monitor_manager_xrandr_set_crtc_gamma;
+    mc->tiled_monitor_added = gd_monitor_manager_xrandr_tiled_monitor_added;
+    mc->tiled_monitor_removed = gd_monitor_manager_xrandr_tiled_monitor_removed;
+    mc->is_transform_handled = gd_monitor_manager_xrandr_is_transform_handled;
+    mc->calculate_monitor_mode_scale = gd_monitor_manager_xrandr_calculate_monitor_mode_scale;
+    mc->calculate_supported_scales = gd_monitor_manager_xrandr_calculate_supported_scales;
+    mc->get_capabilities = gd_monitor_manager_xrandr_get_capabilities;
+    mc->get_max_screen_size = gd_monitor_manager_xrandr_get_max_screen_size;
+    mc->get_default_layout_mode = gd_monitor_manager_xrandr_get_default_layout_mode;
+    mc->set_output_ctm = gd_monitor_manager_xrandr_set_output_ctm;
 }
 
-static void
-gd_monitor_manager_xrandr_init(GDMonitorManagerXrandr* xrandr)
+static void gd_monitor_manager_xrandr_init(GDMonitorManagerXrandr* xrandr)
 {
 }
 
-Display*
-gd_monitor_manager_xrandr_get_xdisplay(GDMonitorManagerXrandr* xrandr)
+Display* gd_monitor_manager_xrandr_get_xdisplay(GDMonitorManagerXrandr* xrandr)
 {
     return xrandr->xdisplay;
 }
 
-bool
-gd_monitor_manager_xrandr_has_randr15(GDMonitorManagerXrandr* xrandr)
+bool gd_monitor_manager_xrandr_has_randr15(GDMonitorManagerXrandr* xrandr)
 {
     return xrandr->has_randr15;
 }
 
-bool
-gd_monitor_manager_xrandr_handle_xevent(GDMonitorManagerXrandr* xrandr, XEvent* event)
+bool gd_monitor_manager_xrandr_handle_xevent(GDMonitorManagerXrandr* xrandr, XEvent* event)
 {
-    GDMonitorManager* manager;
-    GDGpu* gpu;
-    GDGpuXrandr* gpu_xrandr;
-    XRRScreenResources* resources;
-
-    manager = GD_MONITOR_MANAGER(xrandr);
-
-    if ((event->type - xrandr->rr_event_base) != RRScreenChangeNotify) return FALSE;
+    GDMonitorManager* manager = GD_MONITOR_MANAGER(xrandr);
+    C_RETURN_VAL_IF_OK((event->type - xrandr->rr_event_base) != RRScreenChangeNotify, false);
 
     XRRUpdateConfiguration(event);
     gd_monitor_manager_read_current_state(manager);
 
-    gpu = get_gpu(xrandr);
-    gpu_xrandr = GD_GPU_XRANDR(gpu);
-    resources = gd_gpu_xrandr_get_resources(gpu_xrandr);
+    GDGpu* gpu = get_gpu(xrandr);
+    GDGpuXrandr* gx = GD_GPU_XRANDR(gpu);
+    XRRScreenResources* resources = gd_gpu_xrandr_get_resources(gx);
 
-    if (!resources) return TRUE;
+    C_RETURN_VAL_IF_FAIL(resources, true);
 
     if (resources->timestamp < resources->configTimestamp) {
         gd_monitor_manager_reconfigure(manager);
     }
     else {
-        GDMonitorsConfig* config;
-
-        config = NULL;
-
+        GDMonitorsConfig* config = NULL;
         if (resources->timestamp == xrandr->last_xrandr_set_timestamp) {
-            GDMonitorConfigManager* config_manager;
-
-            config_manager = gd_monitor_manager_get_config_manager(manager);
-            config = gd_monitor_config_manager_get_current(config_manager);
+            GDMonitorConfigManager* cm = gd_monitor_manager_get_config_manager(manager);
+            config = gd_monitor_config_manager_get_current(cm);
         }
-
         gd_monitor_manager_rebuild_derived(manager, config);
     }
 
-    return TRUE;
+    return true;
 }

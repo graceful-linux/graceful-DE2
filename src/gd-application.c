@@ -9,9 +9,12 @@
 #include "gd-wm.h"
 #include "gd-ui-scaling.h"
 #include "backends/gd-backend.h"
-#include "plugins/desktop/gd-desktop.h"
 #include "gd-session-manager-gen.dbus.h"
 #include "gd-confirm-display-change-dialog.h"
+
+#include "plugins/desktop/gd-desktop.h"
+#include "plugins/notifications/gd-notifications.h"
+#include "plugins/status-notify-watcher/gd-status-notifier-watcher.h"
 
 
 struct _GDApplication
@@ -25,6 +28,9 @@ struct _GDApplication
     GtkStyleProvider*               provider;
     GSettings*                      settings;
     GDUiScaling*                    uiScaling;
+
+    GDNotifications*                notifications;
+    GDStatusNotifierWatcher*        statusNotifierWatcher;
 
     GtkWidget*                      displayChangeDialog;
 };
@@ -41,8 +47,6 @@ static void keep_changes_cb (GDConfirmDisplayChangeDialog *dialog, bool keep_cha
 
 static void gd_application_init (GDApplication* obj)
 {
-    GDMonitorManager* mm = NULL;
-
     /**
      * 监听窗口管理器进程变化，以及处理指定快捷键相关功能(适用于GNOME 2.x, metacity)
      */
@@ -50,7 +54,7 @@ static void gd_application_init (GDApplication* obj)
     obj->backend = gd_backend_new (GD_BACKEND_TYPE_X11_CM);
     obj->uiScaling = gd_ui_scaling_new (obj->backend);
 
-    mm = gd_backend_get_monitor_manager (obj->backend);
+    GDMonitorManager* mm = gd_backend_get_monitor_manager (obj->backend);
     g_signal_connect (mm, "confirm-display-change", G_CALLBACK (confirm_display_change_cb), obj);
 
     // settings
@@ -87,6 +91,8 @@ static void gd_application_dispose (GObject* obj)
     C_FREE_FUNC_NULL(app->backend, g_object_unref);
     C_FREE_FUNC_NULL(app->desktop, g_object_unref);
     C_FREE_FUNC_NULL(app->uiScaling, g_object_unref);
+    C_FREE_FUNC_NULL(app->notifications, g_object_unref);
+    C_FREE_FUNC_NULL(app->statusNotifierWatcher, g_object_unref);
     C_FREE_FUNC_NULL(app->displayChangeDialog, gtk_widget_destroy);
 
     G_OBJECT_CLASS(gd_application_parent_class)->dispose(obj);
@@ -94,9 +100,7 @@ static void gd_application_dispose (GObject* obj)
 
 static void confirm_display_change_cb (GDMonitorManager* mm, GDApplication *app)
 {
-    gint timeout;
-
-    timeout = gd_monitor_manager_get_display_configuration_timeout ();
+    const gint timeout = gd_monitor_manager_get_display_configuration_timeout ();
 
     g_clear_pointer (&app->displayChangeDialog, gtk_widget_destroy);
     app->displayChangeDialog = gd_confirm_display_change_dialog_new (timeout);
@@ -116,11 +120,8 @@ static void keep_changes_cb (GDConfirmDisplayChangeDialog *dialog, bool keep_cha
 
 static void settings_changed (GSettings* settings, const gchar* key, void* uData)
 {
-    GDApplication *application;
-    GDMonitorManager *monitor_manager;
-
-    application = GD_APPLICATION (uData);
-    monitor_manager = gd_backend_get_monitor_manager (application->backend);
+    GDApplication* application = GD_APPLICATION (uData);
+    GDMonitorManager* mm = gd_backend_get_monitor_manager (application->backend);
 
 #define SETTING_CHANGED(variable_name, setting_name, function_name) \
     if (key == NULL || g_strcmp0 (key, setting_name) == 0) { \
@@ -142,17 +143,17 @@ static void settings_changed (GSettings* settings, const gchar* key, void* uData
   // SETTING_CHANGED (dialog, "end-session-dialog", gf_end_session_dialog_new)
   // SETTING_CHANGED (input_settings, "input-settings", gf_input_settings_new)
   // SETTING_CHANGED (input_sources, "input-sources", gf_input_sources_new)
-  // SETTING_CHANGED (notifications, "notifications", gf_notifications_new)
+  SETTING_CHANGED (notifications, "notifications", gd_notifications_new)
   // SETTING_CHANGED (root_background, "root-background", gf_root_background_new)
   // SETTING_CHANGED (screencast, "screencast", gf_screencast_new)
   // SETTING_CHANGED (screensaver, "screensaver", gf_screensaver_new)
   // SETTING_CHANGED (screenshot, "screenshot", gf_screenshot_new)
-  // SETTING_CHANGED (status_notifier_watcher, "status-notifier-watcher", gf_status_notifier_watcher_new)
+  SETTING_CHANGED (statusNotifierWatcher, "status-notifier-watcher", gd_status_notifier_watcher_new)
 
 #undef SETTING_CHANGED
 
   if (application->desktop) {
-      gd_desktop_set_monitor_manager (application->desktop, monitor_manager);
+      gd_desktop_set_monitor_manager (application->desktop, mm);
   }
 
   // if (application->input_settings)

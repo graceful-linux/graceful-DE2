@@ -8,293 +8,296 @@
 
 #include <gio/gio.h>
 
-#define TOUCHSCREEN_SCHEMA "org.gnome.settings-daemon.peripherals.touchscreen"
-#define ORIENTATION_LOCK_KEY "orientation-lock"
+#define TOUCHSCREEN_SCHEMA      "org.gnome.settings-daemon.peripherals.touchscreen"
+#define ORIENTATION_LOCK_KEY    "orientation-lock"
 
 struct _GDOrientationManager
 {
-    GObject parent;
+    GObject             parent;
+    GCancellable*       cancellable;
 
-    GCancellable* cancellable;
-
-    guint iio_watch_id;
-    guint sync_idle_id;
-    GDBusProxy* iio_proxy;
-    GDOrientation prev_orientation;
-    GDOrientation curr_orientation;
-    gboolean has_accel;
-
-    GSettings* settings;
+    guint               iioWatchId;
+    guint               syncIdleId;
+    GDBusProxy*         iioProxy;
+    GDOrientation       prevOrientation;
+    GDOrientation       currOrientation;
+    bool                hasAccel;
+    GSettings*          settings;
 };
 
-enum { PROP_0, PROP_HAS_ACCELEROMETER, LAST_PROP };
+enum
+{
+    PROP_0,
+    PROP_HAS_ACCELEROMETER,
+    LAST_PROP
+};
 
-static GParamSpec* manager_properties[LAST_PROP] = {NULL};
+static GParamSpec* gsManagerProperties[LAST_PROP] = {NULL};
 
-enum { ORIENTATION_CHANGED, LAST_SIGNAL };
+enum
+{
+    ORIENTATION_CHANGED,
+    LAST_SIGNAL
+};
 
-static guint manager_signals[LAST_SIGNAL] = {0};
+static guint gsManagerSignals[LAST_SIGNAL] = {0};
 
 G_DEFINE_TYPE(GDOrientationManager, gd_orientation_manager, G_TYPE_OBJECT)
 
-static GDOrientation
-orientation_from_string(const gchar* orientation)
+static GDOrientation orientation_from_string(const gchar* orientation)
 {
-    if (g_strcmp0(orientation, "normal") == 0) return GD_ORIENTATION_NORMAL;
-    if (g_strcmp0(orientation, "bottom-up") == 0) return GD_ORIENTATION_BOTTOM_UP;
-    if (g_strcmp0(orientation, "left-up") == 0) return GD_ORIENTATION_LEFT_UP;
-    if (g_strcmp0(orientation, "right-up") == 0) return GD_ORIENTATION_RIGHT_UP;
+    if (g_strcmp0(orientation, "normal") == 0) {
+        return GD_ORIENTATION_NORMAL;
+    }
+
+    if (g_strcmp0(orientation, "bottom-up") == 0) {
+        return GD_ORIENTATION_BOTTOM_UP;
+    }
+
+    if (g_strcmp0(orientation, "left-up") == 0) {
+        return GD_ORIENTATION_LEFT_UP;
+    }
+
+    if (g_strcmp0(orientation, "right-up") == 0) {
+        return GD_ORIENTATION_RIGHT_UP;
+    }
 
     return GD_ORIENTATION_UNDEFINED;
 }
 
-static void
-read_iio_proxy(GDOrientationManager* manager)
+static void read_iio_proxy(GDOrientationManager* manager)
 {
-    GVariant* variant;
+    manager->currOrientation = GD_ORIENTATION_UNDEFINED;
 
-    manager->curr_orientation = GD_ORIENTATION_UNDEFINED;
-
-    if (!manager->iio_proxy) {
-        manager->has_accel = FALSE;
+    if (!manager->iioProxy) {
+        manager->hasAccel = FALSE;
         return;
     }
 
-    variant = g_dbus_proxy_get_cached_property(manager->iio_proxy, "HasAccelerometer");
-
+    GVariant* variant = g_dbus_proxy_get_cached_property(manager->iioProxy, "HasAccelerometer");
     if (variant) {
-        manager->has_accel = g_variant_get_boolean(variant);
+        manager->hasAccel = g_variant_get_boolean(variant);
         g_variant_unref(variant);
     }
+    C_RETURN_IF_OK(!manager->hasAccel);
 
-    if (!manager->has_accel) return;
-
-    variant = g_dbus_proxy_get_cached_property(manager->iio_proxy, "AccelerometerOrientation");
-
+    variant = g_dbus_proxy_get_cached_property(manager->iioProxy, "AccelerometerOrientation");
     if (variant) {
-        const gchar* str;
-
-        str = g_variant_get_string(variant, NULL);
-        manager->curr_orientation = orientation_from_string(str);
+        const gchar* str = g_variant_get_string(variant, NULL);
+        manager->currOrientation = orientation_from_string(str);
         g_variant_unref(variant);
     }
 }
 
-static void
-sync_state(GDOrientationManager* manager)
+static void sync_state(GDOrientationManager* manager)
 {
-    gboolean had_accel;
-
-    had_accel = manager->has_accel;
+    const bool hadAccel = manager->hasAccel;
 
     read_iio_proxy(manager);
 
-    if (had_accel != manager->has_accel) {
-        g_object_notify_by_pspec(G_OBJECT(manager), manager_properties[PROP_HAS_ACCELEROMETER]);
+    if (hadAccel != manager->hasAccel) {
+        g_object_notify_by_pspec(G_OBJECT(manager), gsManagerProperties[PROP_HAS_ACCELEROMETER]);
     }
 
-    if (g_settings_get_boolean(manager->settings, ORIENTATION_LOCK_KEY)) return;
+    C_RETURN_IF_OK(g_settings_get_boolean(manager->settings, ORIENTATION_LOCK_KEY));
+    C_RETURN_IF_OK(manager->prevOrientation == manager->currOrientation);
 
-    if (manager->prev_orientation == manager->curr_orientation) return;
+    manager->prevOrientation = manager->currOrientation;
+    C_RETURN_IF_OK(manager->currOrientation == GD_ORIENTATION_UNDEFINED);
 
-    manager->prev_orientation = manager->curr_orientation;
-    if (manager->curr_orientation == GD_ORIENTATION_UNDEFINED) return;
-
-    g_signal_emit(manager, manager_signals[ORIENTATION_CHANGED], 0);
+    g_signal_emit(manager, gsManagerSignals[ORIENTATION_CHANGED], 0);
 }
 
-static gboolean
-sync_state_cb(gpointer user_data)
+static gboolean sync_state_cb(gpointer uData)
 {
-    GDOrientationManager* self;
-
-    self = user_data;
-    self->sync_idle_id = 0;
+    GDOrientationManager* self = uData;
+    self->syncIdleId = 0;
 
     sync_state(self);
 
     return G_SOURCE_REMOVE;
 }
 
-static void
-queue_sync_state(GDOrientationManager* self)
+static void queue_sync_state(GDOrientationManager* self)
 {
-    if (self->sync_idle_id != 0) return;
+    if (self->syncIdleId != 0) return;
 
-    self->sync_idle_id = g_idle_add(sync_state_cb, self);
+    self->syncIdleId = g_idle_add(sync_state_cb, self);
 }
 
-static void
-orientation_lock_changed_cb(GSettings* settings, const gchar* key, gpointer user_data)
+static void orientation_lock_changed_cb(GSettings* settings, const gchar* key, gpointer uData)
 {
-    GDOrientationManager* manager;
-
-    manager = GD_ORIENTATION_MANAGER(user_data);
+    GDOrientationManager* manager = GD_ORIENTATION_MANAGER(uData);
 
     queue_sync_state(manager);
 }
 
-static void
-iio_properties_changed_cb(GDBusProxy* proxy, GVariant* changed_properties, GStrv invalidated_properties, gpointer user_data)
+static void iio_properties_changed_cb(GDBusProxy* proxy, GVariant* changedProp, GStrv invalidatedProp, gpointer uData)
 {
-    GDOrientationManager* manager;
-
-    manager = GD_ORIENTATION_MANAGER(user_data);
+    GDOrientationManager* manager = GD_ORIENTATION_MANAGER(uData);
 
     queue_sync_state(manager);
 }
 
-static void
-accelerometer_claimed_cb(GObject* source, GAsyncResult* res, gpointer user_data)
+static void accelerometer_claimed_cb(GObject* source, GAsyncResult* res, gpointer uData)
 {
-    GVariant* variant;
-    GError* error;
-    GDOrientationManager* manager;
+    GError* error = NULL;
 
-    error = NULL;
-    variant = g_dbus_proxy_call_finish(G_DBUS_PROXY(source), res, &error);
-
+    GVariant* variant = g_dbus_proxy_call_finish(G_DBUS_PROXY(source), res, &error);
     if (!variant) {
-        if (!g_error_matches(error, G_IO_ERROR, G_IO_ERROR_CANCELLED))
+        if (!g_error_matches(error, G_IO_ERROR, G_IO_ERROR_CANCELLED)) {
             g_warning("Failed to claim accelerometer: %s", error->message);
-
+        }
         g_error_free(error);
         return;
     }
 
-    manager = GD_ORIENTATION_MANAGER(user_data);
+    GDOrientationManager* manager = GD_ORIENTATION_MANAGER(uData);
 
     g_variant_unref(variant);
     sync_state(manager);
 }
 
-static void
-iio_proxy_ready_cb(GObject* source, GAsyncResult* res, gpointer user_data)
+static void iio_proxy_ready_cb(GObject* source, GAsyncResult* res, gpointer uData)
 {
-    GDBusProxy* proxy;
-    GError* error;
-    GDOrientationManager* manager;
+    GError* error = NULL;
 
-    error = NULL;
-    proxy = g_dbus_proxy_new_finish(res, &error);
+    GDBusProxy* proxy = g_dbus_proxy_new_finish(res, &error);
 
     if (!proxy) {
-        if (!g_error_matches(error, G_IO_ERROR, G_IO_ERROR_CANCELLED))
+        if (!g_error_matches(error, G_IO_ERROR, G_IO_ERROR_CANCELLED)) {
             g_warning("Failed to obtain IIO DBus proxy: %s", error->message);
-
+        }
         g_error_free(error);
         return;
     }
 
-    manager = GD_ORIENTATION_MANAGER(user_data);
-    manager->iio_proxy = proxy;
+    GDOrientationManager* manager = GD_ORIENTATION_MANAGER(uData);
+    manager->iioProxy = proxy;
 
-    g_signal_connect(manager->iio_proxy, "g-properties-changed", G_CALLBACK (iio_properties_changed_cb), manager);
-
-    g_dbus_proxy_call(manager->iio_proxy, "ClaimAccelerometer", NULL, G_DBUS_CALL_FLAGS_NONE, -1, manager->cancellable, accelerometer_claimed_cb, manager);
+    g_signal_connect(manager->iioProxy, "g-properties-changed", G_CALLBACK (iio_properties_changed_cb), manager);
+    g_dbus_proxy_call(manager->iioProxy,
+        "ClaimAccelerometer",
+        NULL,
+        G_DBUS_CALL_FLAGS_NONE,
+        -1,
+        manager->cancellable,
+        accelerometer_claimed_cb, manager);
 }
 
-static void
-iio_sensor_appeared_cb(GDBusConnection* connection, const gchar* name, const gchar* name_owner, gpointer user_data)
+static void iio_sensor_appeared_cb(GDBusConnection* connection, const gchar* name, const gchar* nameOwner, gpointer uData)
 {
-    GDOrientationManager* manager;
-
-    manager = GD_ORIENTATION_MANAGER(user_data);
+    GDOrientationManager* manager = GD_ORIENTATION_MANAGER(uData);
 
     manager->cancellable = g_cancellable_new();
-    g_dbus_proxy_new(connection, G_DBUS_PROXY_FLAGS_NONE, NULL, "net.hadess.SensorProxy", "/net/hadess/SensorProxy", "net.hadess.SensorProxy", manager->cancellable, iio_proxy_ready_cb, manager);
+    g_dbus_proxy_new(connection,
+        G_DBUS_PROXY_FLAGS_NONE,
+        NULL,
+        "net.hadess.SensorProxy",
+        "/net/hadess/SensorProxy",
+        "net.hadess.SensorProxy",
+        manager->cancellable,
+        iio_proxy_ready_cb, manager);
 }
 
-static void
-iio_sensor_vanished_cb(GDBusConnection* connection, const gchar* name, gpointer user_data)
+static void iio_sensor_vanished_cb(GDBusConnection* connection, const gchar* name, gpointer uData)
 {
-    GDOrientationManager* manager;
-
-    manager = GD_ORIENTATION_MANAGER(user_data);
+    GDOrientationManager* manager = GD_ORIENTATION_MANAGER(uData);
 
     g_cancellable_cancel(manager->cancellable);
     g_clear_object(&manager->cancellable);
-
-    g_clear_object(&manager->iio_proxy);
+    g_clear_object(&manager->iioProxy);
 
     sync_state(manager);
 }
 
-static void
-gd_orientation_manager_dispose(GObject* object)
+static void gd_orientation_manager_dispose(GObject* object)
 {
-    GDOrientationManager* manager;
-
-    manager = GD_ORIENTATION_MANAGER(object);
-
+    GDOrientationManager* manager = GD_ORIENTATION_MANAGER(object);
     if (manager->cancellable != NULL) {
         g_cancellable_cancel(manager->cancellable);
         g_clear_object(&manager->cancellable);
     }
 
-    if (manager->iio_watch_id != 0) {
-        g_bus_unwatch_name(manager->iio_watch_id);
-        manager->iio_watch_id = 0;
+    if (manager->iioWatchId != 0) {
+        g_bus_unwatch_name(manager->iioWatchId);
+        manager->iioWatchId = 0;
     }
 
-    if (manager->sync_idle_id != 0) {
-        g_source_remove(manager->sync_idle_id);
-        manager->sync_idle_id = 0;
+    if (manager->syncIdleId != 0) {
+        g_source_remove(manager->syncIdleId);
+        manager->syncIdleId = 0;
     }
 
-    g_clear_object(&manager->iio_proxy);
+    g_clear_object(&manager->iioProxy);
     g_clear_object(&manager->settings);
 
     G_OBJECT_CLASS(gd_orientation_manager_parent_class)->dispose(object);
 }
 
-static void
-gd_orientation_manager_get_property(GObject* object, guint property_id, GValue* value, GParamSpec* pspec)
+static void gd_orientation_manager_get_property(GObject* object, guint propertyId, GValue* value, GParamSpec* pspec)
 {
     GDOrientationManager* self = GD_ORIENTATION_MANAGER(object);
-
-    switch (property_id) {
-    case PROP_HAS_ACCELEROMETER:
-        g_value_set_boolean(value, self->has_accel);
-        break;
-
-    default: G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
-        break;
+    switch (propertyId) {
+        case PROP_HAS_ACCELEROMETER: {
+            g_value_set_boolean(value, self->hasAccel);
+            break;
+        }
+        default: {
+            G_OBJECT_WARN_INVALID_PROPERTY_ID(object, propertyId, pspec);
+            break;
+        }
     }
 }
 
-static void
-gd_orientation_manager_install_properties(GObjectClass* object_class)
+static void gd_orientation_manager_install_properties(GObjectClass* oc)
 {
-    manager_properties[PROP_HAS_ACCELEROMETER] = g_param_spec_boolean("has-accelerometer", "Has accelerometer", "Has accelerometer", FALSE, G_PARAM_READABLE | G_PARAM_EXPLICIT_NOTIFY | G_PARAM_STATIC_STRINGS);
+    gsManagerProperties[PROP_HAS_ACCELEROMETER] =
+        g_param_spec_boolean(
+            "has-accelerometer",
+            "Has accelerometer",
+            "Has accelerometer",
+            FALSE,
+            G_PARAM_READABLE | G_PARAM_EXPLICIT_NOTIFY | G_PARAM_STATIC_STRINGS);
 
-    g_object_class_install_properties(object_class, LAST_PROP, manager_properties);
+    g_object_class_install_properties(oc, LAST_PROP, gsManagerProperties);
 }
 
-static void
-gd_orientation_manager_install_signals(GObjectClass* object_class)
+static void gd_orientation_manager_install_signals(GObjectClass* oc)
 {
-    manager_signals[ORIENTATION_CHANGED] = g_signal_new("orientation-changed", G_TYPE_FROM_CLASS(object_class), G_SIGNAL_RUN_LAST, 0, NULL, NULL, NULL, G_TYPE_NONE, 0);
+    gsManagerSignals[ORIENTATION_CHANGED]
+        = g_signal_new(
+            "orientation-changed",
+            G_TYPE_FROM_CLASS(oc),
+            G_SIGNAL_RUN_LAST,
+            0,
+            NULL,
+            NULL,
+            NULL,
+            G_TYPE_NONE,
+            0);
 }
 
-static void
-gd_orientation_manager_class_init(GDOrientationManagerClass* manager_class)
+static void gd_orientation_manager_class_init(GDOrientationManagerClass* mc)
 {
-    GObjectClass* object_class;
+    GObjectClass* oc = G_OBJECT_CLASS(mc);
 
-    object_class = G_OBJECT_CLASS(manager_class);
+    oc->dispose = gd_orientation_manager_dispose;
+    oc->get_property = gd_orientation_manager_get_property;
 
-    object_class->dispose = gd_orientation_manager_dispose;
-    object_class->get_property = gd_orientation_manager_get_property;
-
-    gd_orientation_manager_install_properties(object_class);
-    gd_orientation_manager_install_signals(object_class);
+    gd_orientation_manager_install_properties(oc);
+    gd_orientation_manager_install_signals(oc);
 }
 
-static void
-gd_orientation_manager_init(GDOrientationManager* manager)
+static void gd_orientation_manager_init(GDOrientationManager* manager)
 {
-    manager->iio_watch_id = g_bus_watch_name(G_BUS_TYPE_SYSTEM, "net.hadess.SensorProxy", G_BUS_NAME_WATCHER_FLAGS_NONE, iio_sensor_appeared_cb, iio_sensor_vanished_cb, manager, NULL);
+    manager->iioWatchId = g_bus_watch_name(
+        G_BUS_TYPE_SYSTEM,
+        "net.hadess.SensorProxy",
+        G_BUS_NAME_WATCHER_FLAGS_NONE,
+        iio_sensor_appeared_cb,
+        iio_sensor_vanished_cb,
+        manager, NULL);
 
     manager->settings = g_settings_new(TOUCHSCREEN_SCHEMA);
 
@@ -303,20 +306,17 @@ gd_orientation_manager_init(GDOrientationManager* manager)
     sync_state(manager);
 }
 
-GDOrientationManager*
-gd_orientation_manager_new(void)
+GDOrientationManager* gd_orientation_manager_new(void)
 {
     return g_object_new(GD_TYPE_ORIENTATION_MANAGER, NULL);
 }
 
-GDOrientation
-gd_orientation_manager_get_orientation(GDOrientationManager* manager)
+GDOrientation gd_orientation_manager_get_orientation(GDOrientationManager* manager)
 {
-    return manager->curr_orientation;
+    return manager->currOrientation;
 }
 
-bool
-gd_orientation_manager_has_accelerometer(GDOrientationManager* self)
+bool gd_orientation_manager_has_accelerometer(GDOrientationManager* self)
 {
-    return self->has_accel;
+    return self->hasAccel;
 }

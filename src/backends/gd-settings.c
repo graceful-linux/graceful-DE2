@@ -82,8 +82,9 @@ static void monitors_changed_cb (GDMonitorManager* mm, GDSettings* settings)
 
 static void global_scaling_factor_changed_cb (GDSettings *settings, void* uData)
 {
-    if (update_ui_scaling_factor (settings))
+    if (update_ui_scaling_factor (settings)) {
         g_signal_emit (settings, gsSettingsSignals[UI_SCALING_FACTOR_CHANGED], 0);
+    }
 }
 
 static bool update_global_scaling_factor (GDSettings *settings)

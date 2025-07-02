@@ -8,15 +8,15 @@
 
 typedef struct
 {
-    GSource source;
-    GPollFD event_poll_fd;
-    GDBackend* backend;
+    GSource         source;
+    GPollFD         eventPollFd;
+    GDBackend*      backend;
 } XEventSource;
 
 typedef struct
 {
-    Display* xdisplay;
-    GSource* source;
+    Display*        xdisplay;
+    GSource*        source;
 } GDBackendX11Private;
 
 static void initable_iface_init(GInitableIface* initable_iface);
@@ -66,7 +66,7 @@ static bool x_event_source_check(GSource* source)
     return XPending(priv->xdisplay);
 }
 
-static bool x_event_source_dispatch(GSource* source, GSourceFunc callback, gpointer user_data)
+static bool x_event_source_dispatch(GSource* source, GSourceFunc callback, gpointer uData)
 {
     XEventSource* x_source;
     GDBackendX11* x11;
@@ -78,17 +78,14 @@ static bool x_event_source_dispatch(GSource* source, GSourceFunc callback, gpoin
 
     while (XPending(priv->xdisplay)) {
         XEvent event;
-
         XNextEvent(priv->xdisplay, &event);
-
         handle_host_xevent(x_source->backend, &event);
     }
 
     return TRUE;
 }
 
-GSource *g_source_new             (GSourceFuncs   *source_funcs,
-                                   guint           struct_size);
+GSource *g_source_new (GSourceFuncs* sourceFuncs, guint structSize);
 static GSourceFuncs x_event_funcs = {
     (GSourceFuncsPrepareFunc) x_event_source_prepare,
     (GSourceFuncsCheckFunc) x_event_source_check,
@@ -108,11 +105,11 @@ static GSource* x_event_source_new(GDBackend* backend)
     source = g_source_new(&x_event_funcs, sizeof(XEventSource));
 
     x_source = (XEventSource*)source;
-    x_source->event_poll_fd.fd = ConnectionNumber(priv->xdisplay);
-    x_source->event_poll_fd.events = G_IO_IN;
+    x_source->eventPollFd.fd = ConnectionNumber(priv->xdisplay);
+    x_source->eventPollFd.events = G_IO_IN;
     x_source->backend = backend;
 
-    g_source_add_poll(source, &x_source->event_poll_fd);
+    g_source_add_poll(source, &x_source->eventPollFd);
     g_source_attach(source, NULL);
 
     return source;
