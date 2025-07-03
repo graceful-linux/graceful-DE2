@@ -12,6 +12,7 @@
 #include "gd-session-manager-gen.dbus.h"
 #include "gd-confirm-display-change-dialog.h"
 
+#include "plugins/shell/shell.h"
 #include "plugins/desktop/gd-desktop.h"
 #include "plugins/notifications/gd-notifications.h"
 #include "plugins/status-notify-watcher/gd-status-notifier-watcher.h"
@@ -28,6 +29,8 @@ struct _GDApplication
     GtkStyleProvider*               provider;
     GSettings*                      settings;
     GDUiScaling*                    uiScaling;
+
+    FlashbackShell*                 shell;
 
     GDNotifications*                notifications;
     GDStatusNotifierWatcher*        statusNotifierWatcher;
@@ -88,6 +91,7 @@ static void gd_application_dispose (GObject* obj)
 
     C_FREE_FUNC(app->busName, g_bus_unown_name);
     C_FREE_FUNC_NULL(app->wm, g_object_unref);
+    C_FREE_FUNC_NULL(app->shell, g_object_unref);
     C_FREE_FUNC_NULL(app->backend, g_object_unref);
     C_FREE_FUNC_NULL(app->desktop, g_object_unref);
     C_FREE_FUNC_NULL(app->uiScaling, g_object_unref);
@@ -138,7 +142,7 @@ static void settings_changed (GSettings* settings, const gchar* key, void* uData
     }
 
   // SETTING_CHANGED (automount, "automount-manager", gsd_automount_manager_new)
-  // SETTING_CHANGED (shell, "shell", flashback_shell_new)
+  SETTING_CHANGED (shell, "shell", flashback_shell_new)
   // SETTING_CHANGED (a11y_keyboard, "a11y-keyboard", gf_a11y_keyboard_new)
   // SETTING_CHANGED (audio_device_selection, "audio-device-selection", gf_audio_device_selection_new)
   SETTING_CHANGED (desktop, "desktop", gd_desktop_new)
@@ -171,8 +175,9 @@ static void settings_changed (GSettings* settings, const gchar* key, void* uData
                                         // application->input_sources);
     // }
 
-  // if (application->shell)
-    // flashback_shell_set_monitor_manager (application->shell, monitor_manager);
+    if (application->shell) {
+        flashback_shell_set_monitor_manager (application->shell, mm);
+    }
 }
 
 static void theme_changed (GtkSettings* settings, GParamSpec* pspec, GDApplication* obj)

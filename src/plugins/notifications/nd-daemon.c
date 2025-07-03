@@ -136,8 +136,7 @@ static bool handle_notify_cb(GDFdNotificationsGen* object, GDBusMethodInvocation
     return TRUE;
 }
 
-static void
-bus_acquired_handler_cb(GDBusConnection* connection, const gchar* name, gpointer uData)
+static void bus_acquired_handler_cb(GDBusConnection* connection, const gchar* name, gpointer uData)
 {
     NdDaemon* daemon = ND_DAEMON(uData);
     GDBusInterfaceSkeleton* skeleton = G_DBUS_INTERFACE_SKELETON(daemon->notifications);
@@ -171,7 +170,8 @@ static void nd_daemon_constructed(GObject* object)
     const GBusNameOwnerFlags flags = G_BUS_NAME_OWNER_FLAGS_ALLOW_REPLACEMENT | G_BUS_NAME_OWNER_FLAGS_REPLACE;
 
     daemon->busNameId = g_bus_own_name(G_BUS_TYPE_SESSION,
-        NOTIFICATIONS_DBUS_NAME, flags, bus_acquired_handler_cb, NULL, name_lost_handler_cb, daemon, NULL);
+        NOTIFICATIONS_DBUS_NAME, flags,
+        bus_acquired_handler_cb, NULL, name_lost_handler_cb, daemon, NULL);
 }
 
 static void

@@ -41,6 +41,18 @@ execute_process(COMMAND
         dbus/org.freedesktop.Notifications.xml
         WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/src)
 
+execute_process(COMMAND
+        gdbus-codegen --c-namespace GD
+        --generate-c-code gd-shell-introspect-gen.dbus
+        dbus/org.graceful.DE2.Introspect.xml
+        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/src)
+
+execute_process(COMMAND
+        gdbus-codegen --c-namespace GD
+        --generate-c-code gd-shell-gen.dbus
+        dbus/org.graceful.DE2.xml
+        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/src)
+
 file(GLOB DBUS_SRC *.dbus.h *.dbus.c)
 add_executable(graceful-DE2 main.c
         gd-wm.c gd-wm.h
@@ -116,6 +128,13 @@ add_executable(graceful-DE2 main.c
         plugins/notifications/nd-notification.h plugins/notifications/nd-notification.c
         plugins/notifications/gd-notifications.h plugins/notifications/gd-notifications.c
         plugins/notifications/nd-notification-box.h plugins/notifications/nd-notification-box.c
+
+        plugins/shell/osd.h plugins/shell/osd.c
+        plugins/shell/shell.h plugins/shell/shell.c
+        plugins/shell/gd-osd-window.h plugins/shell/gd-osd-window.c
+        plugins/shell/monitor-labeler.h plugins/shell/monitor-labeler.c
+        plugins/shell/gd-label-window.h plugins/shell/gd-label-window.c
+        plugins/shell/gd-shell-introspect.h plugins/shell/gd-shell-introspect.c
 
         plugins/status-notify-watcher/gd-sn-watcher-v0.h plugins/status-notify-watcher/gd-sn-watcher-v0.c
         plugins/status-notify-watcher/gd-status-notifier-watcher.h plugins/status-notify-watcher/gd-status-notifier-watcher.c
