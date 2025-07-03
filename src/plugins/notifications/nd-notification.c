@@ -441,7 +441,7 @@ nd_notification_action_invoked(NdNotification* notification, const char* action)
 NdNotification*
 nd_notification_new(const char* sender)
 {
-    g_info("nd notification new\n");
+    g_info("nd notification new");
     NdNotification* notification = (NdNotification*)g_object_new(ND_TYPE_NOTIFICATION, NULL);
     notification->sender = g_strdup(sender);
 

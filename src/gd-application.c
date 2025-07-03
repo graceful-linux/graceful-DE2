@@ -13,6 +13,7 @@
 #include "gd-confirm-display-change-dialog.h"
 
 #include "plugins/shell/shell.h"
+#include "plugins/panel/main-panel.h"
 #include "plugins/desktop/gd-desktop.h"
 #include "plugins/notifications/gd-notifications.h"
 #include "plugins/status-notify-watcher/gd-status-notifier-watcher.h"
@@ -31,6 +32,7 @@ struct _GDApplication
     GDUiScaling*                    uiScaling;
 
     FlashbackShell*                 shell;
+    GDPanel*                        panel;
 
     GDNotifications*                notifications;
     GDStatusNotifierWatcher*        statusNotifierWatcher;
@@ -54,6 +56,7 @@ static void gd_application_init (GDApplication* obj)
      * 监听窗口管理器进程变化，以及处理指定快捷键相关功能(适用于GNOME 2.x, metacity)
      */
     obj->wm = gd_wm_new();
+    obj->panel = gd_panel_new (NULL);
     obj->backend = gd_backend_new (GD_BACKEND_TYPE_X11_CM);
     obj->uiScaling = gd_ui_scaling_new (obj->backend);
 
@@ -91,6 +94,7 @@ static void gd_application_dispose (GObject* obj)
 
     C_FREE_FUNC(app->busName, g_bus_unown_name);
     C_FREE_FUNC_NULL(app->wm, g_object_unref);
+    C_FREE_FUNC_NULL(app->panel, g_object_unref);
     C_FREE_FUNC_NULL(app->shell, g_object_unref);
     C_FREE_FUNC_NULL(app->backend, g_object_unref);
     C_FREE_FUNC_NULL(app->desktop, g_object_unref);

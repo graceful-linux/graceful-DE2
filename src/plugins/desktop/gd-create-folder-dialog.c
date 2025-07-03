@@ -125,14 +125,14 @@ setup_content_area(GDCreateFolderDialog* self)
     gtk_widget_show(self->error_label);
 }
 
-static void
-install_signals(void)
+static void install_signals(void)
 {
-    dialog_signals[VALIDATE] = g_signal_new("validate", GD_TYPE_CREATE_FOLDER_DIALOG, G_SIGNAL_RUN_LAST, 0, NULL, NULL, NULL, G_TYPE_NONE, 1, G_TYPE_STRING);
+    dialog_signals[VALIDATE] = g_signal_new("validate",
+        GD_TYPE_CREATE_FOLDER_DIALOG, G_SIGNAL_RUN_LAST,
+        0, NULL, NULL, NULL, G_TYPE_NONE, 1, G_TYPE_STRING);
 }
 
-static void
-gd_create_folder_dialog_class_init(GDCreateFolderDialogClass* self_class)
+static void gd_create_folder_dialog_class_init(GDCreateFolderDialogClass* self_class)
 {
     install_signals();
 }
@@ -144,18 +144,14 @@ gd_create_folder_dialog_init(GDCreateFolderDialog* self)
     setup_content_area(self);
 }
 
-GtkWidget*
-gd_create_folder_dialog_new(void)
+GtkWidget* gd_create_folder_dialog_new(void)
 {
     return g_object_new(GD_TYPE_CREATE_FOLDER_DIALOG, "use-header-bar", TRUE, "width-request", 450, "resizable", FALSE, NULL);
 }
 
-void
-gd_create_folder_dialog_set_valid(GDCreateFolderDialog* self, bool valid, const char* message)
+void gd_create_folder_dialog_set_valid(GDCreateFolderDialog* self, bool valid, const char* message)
 {
-    GtkRevealer* revealer;
-
-    revealer = GTK_REVEALER(self->error_revealer);
+    GtkRevealer* revealer = GTK_REVEALER(self->error_revealer);
 
     gtk_label_set_text(GTK_LABEL(self->error_label), message);
     gtk_revealer_set_reveal_child(revealer, message != NULL);
@@ -163,14 +159,10 @@ gd_create_folder_dialog_set_valid(GDCreateFolderDialog* self, bool valid, const 
     gtk_widget_set_sensitive(self->create_button, valid);
 }
 
-char*
-gd_create_folder_dialog_get_folder_name(GDCreateFolderDialog* self)
+char* gd_create_folder_dialog_get_folder_name(GDCreateFolderDialog* self)
 {
-    const char* text;
-    char* folder_name;
-
-    text = gtk_entry_get_text(GTK_ENTRY(self->name_entry));
-    folder_name = g_strdup(text);
+    const char* text = gtk_entry_get_text(GTK_ENTRY(self->name_entry));
+    char* folder_name = g_strdup(text);
 
     return g_strstrip(folder_name);
 }

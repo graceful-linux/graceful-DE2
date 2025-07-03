@@ -44,8 +44,7 @@ static void on_notification_close(NdNotification* notification, int reason, NdQu
 
 G_DEFINE_TYPE_WITH_PRIVATE(NdQueue, nd_queue, G_TYPE_OBJECT)
 
-static void
-create_stack_for_monitor(NdQueue* queue, GdkMonitor* monitor)
+static void create_stack_for_monitor(NdQueue* queue, GdkMonitor* monitor)
 {
     NotifyScreen* nscreen;
     NdStack* stack;
@@ -75,26 +74,20 @@ get_stack_with_pointer(NdQueue* queue)
     return g_hash_table_lookup(queue->priv->screen->stacks, monitor);
 }
 
-static void
-monitor_added_cb(GdkDisplay* display, GdkMonitor* monitor, NdQueue* queue)
+static void monitor_added_cb(GdkDisplay* display, GdkMonitor* monitor, NdQueue* queue)
 {
+    g_info("[notify] monitor added");
     create_stack_for_monitor(queue, monitor);
 }
 
-static void
-monitor_removed_cb(GdkDisplay* display, GdkMonitor* monitor, NdQueue* queue)
+static void monitor_removed_cb(GdkDisplay* display, GdkMonitor* monitor, NdQueue* queue)
 {
-    NotifyScreen* nscreen;
-    NdStack* stack;
-    NdStack* focused_stack;
-    GList* bubbles;
-    GList* l;
+    g_info("[notify] monitor removed");
 
     /* transfer items before removing stack */
-
-    nscreen = queue->priv->screen;
-    stack = g_hash_table_lookup(nscreen->stacks, monitor);
-    focused_stack = get_stack_with_pointer(queue);
+    NotifyScreen* nscreen = queue->priv->screen;
+    NdStack* stack = g_hash_table_lookup(nscreen->stacks, monitor);
+    NdStack* focused_stack = get_stack_with_pointer(queue);
 
     if (focused_stack == NULL) {
         g_hash_table_remove(nscreen->stacks, monitor);
@@ -102,12 +95,9 @@ monitor_removed_cb(GdkDisplay* display, GdkMonitor* monitor, NdQueue* queue)
         return;
     }
 
-    bubbles = g_list_copy(nd_stack_get_bubbles(stack));
+    GList* l = NULL;
+    GList* bubbles = g_list_copy(nd_stack_get_bubbles(stack));
     for (l = bubbles; l != NULL; l = l->next) {
-        /* skip removing the bubble from the
-           old stack since it will try to
-           unrealize the window.  And the
-           stack is going away anyhow. */
         nd_stack_add_bubble(focused_stack, l->data);
     }
     g_list_free(bubbles);
@@ -116,34 +106,25 @@ monitor_removed_cb(GdkDisplay* display, GdkMonitor* monitor, NdQueue* queue)
     queue_update(queue);
 }
 
-static void
-create_stacks_for_display(NdQueue* queue, GdkDisplay* display)
+static void create_stacks_for_display(NdQueue* queue, GdkDisplay* display)
 {
-    int n_monitors;
-    int i;
+    int i = 0;
+    const int nMonitors = gdk_display_get_n_monitors(display);
 
-    n_monitors = gdk_display_get_n_monitors(display);
-
-    for (i = 0; i < n_monitors; i++) {
-        GdkMonitor* monitor;
-
-        monitor = gdk_display_get_monitor(display, i);
+    for (i = 0; i < nMonitors; i++) {
+        GdkMonitor* monitor = gdk_display_get_monitor(display, i);
         create_stack_for_monitor(queue, monitor);
     }
 }
 
-static void
-queue_update_position(gpointer key, gpointer value, gpointer user_data)
+static void queue_update_position(gpointer key, gpointer value, gpointer user_data)
 {
     nd_stack_queue_update_position((NdStack*)value);
 }
 
-static GdkFilterReturn
-screen_xevent_filter(GdkXEvent* xevent, GdkEvent* event, NotifyScreen* nscreen)
+static GdkFilterReturn screen_xevent_filter(GdkXEvent* xevent, GdkEvent* event, NotifyScreen* nscreen)
 {
-    XEvent* xev;
-
-    xev = (XEvent*)xevent;
+    const XEvent* xev = (XEvent*)xevent;
 
     if (xev->type == PropertyNotify && xev->xproperty.atom == nscreen->workarea_atom) {
         g_hash_table_foreach(nscreen->stacks, queue_update_position, NULL);
@@ -152,49 +133,38 @@ screen_xevent_filter(GdkXEvent* xevent, GdkEvent* event, NotifyScreen* nscreen)
     return GDK_FILTER_CONTINUE;
 }
 
-static void
-create_screen(NdQueue* queue)
+static void create_screen(NdQueue* queue)
 {
-    GdkDisplay* display;
-    GdkScreen* screen;
-    GdkWindow* gdkwindow;
-
     g_assert(queue->priv->screen == NULL);
 
-    display = gdk_display_get_default();
-    screen = gdk_display_get_default_screen(display);
+    GdkDisplay* display = gdk_display_get_default();
+    GdkScreen* screen = gdk_display_get_default_screen(display);
 
     g_signal_connect(display, "monitor-added", G_CALLBACK (monitor_added_cb), queue);
-
     g_signal_connect(display, "monitor-removed", G_CALLBACK (monitor_removed_cb), queue);
 
     queue->priv->screen = g_new0(NotifyScreen, 1);
     queue->priv->screen->workarea_atom = XInternAtom(GDK_DISPLAY_XDISPLAY(display), "_NET_WORKAREA", True);
     queue->priv->screen->stacks = g_hash_table_new_full(NULL, NULL, NULL, g_object_unref);
 
-    gdkwindow = gdk_screen_get_root_window(screen);
+    GdkWindow* gdkwindow = gdk_screen_get_root_window(screen);
     gdk_window_add_filter(gdkwindow, (GdkFilterFunc)screen_xevent_filter, queue->priv->screen);
     gdk_window_set_events(gdkwindow, gdk_window_get_events(gdkwindow) | GDK_PROPERTY_CHANGE_MASK);
 
     create_stacks_for_display(queue, display);
 }
 
-static void
-nd_queue_class_init(NdQueueClass* klass)
+static void nd_queue_class_init(NdQueueClass* klass)
 {
     GObjectClass* object_class = G_OBJECT_CLASS(klass);
 
     object_class->finalize = nd_queue_finalize;
 }
 
-static void
-ungrab(NdQueue* queue, guint time)
+static void ungrab(NdQueue* queue, guint time)
 {
-    GdkDisplay* display;
-    GdkSeat* seat;
-
-    display = gtk_widget_get_display(queue->priv->dock);
-    seat = gdk_display_get_default_seat(display);
+    GdkDisplay* display = gtk_widget_get_display(queue->priv->dock);
+    GdkSeat* seat = gdk_display_get_default_seat(display);
 
     gdk_seat_ungrab(seat);
 
@@ -204,35 +174,26 @@ ungrab(NdQueue* queue, guint time)
     gtk_widget_hide(queue->priv->dock);
 }
 
-static void
-popdown_dock(NdQueue* queue)
+static void popdown_dock(NdQueue* queue)
 {
     ungrab(queue, GDK_CURRENT_TIME);
     queue_update(queue);
 }
 
-static void
-release_grab(NdQueue* queue, GdkEventButton* event)
+static void release_grab(NdQueue* queue, GdkEventButton* event)
 {
     ungrab(queue, event->time);
 }
 
-/* This is called when the grab is broken for
- * either the dock, or the scale itself */
-static void
-grab_notify(NdQueue* queue, gboolean was_grabbed)
+static void grab_notify(NdQueue* queue, gboolean wasGrabbed)
 {
-    GtkWidget* current;
-
-    if (was_grabbed) {
-        return;
-    }
+    C_RETURN_IF_OK(wasGrabbed);
 
     if (!gtk_widget_has_grab(queue->priv->dock)) {
         return;
     }
 
-    current = gtk_grab_get_current();
+    GtkWidget* current = gtk_grab_get_current();
     if (current == queue->priv->dock || gtk_widget_is_ancestor(current, queue->priv->dock)) {
         return;
     }
@@ -240,22 +201,20 @@ grab_notify(NdQueue* queue, gboolean was_grabbed)
     popdown_dock(queue);
 }
 
-static void
-on_dock_grab_notify(GtkWidget* widget, gboolean was_grabbed, NdQueue* queue)
+static void on_dock_grab_notify(GtkWidget* widget, gboolean was_grabbed, NdQueue* queue)
 {
+    g_info("[notify] dock grab notify");
     grab_notify(queue, was_grabbed);
 }
 
-static gboolean
-on_dock_grab_broken_event(GtkWidget* widget, GdkEventGrabBroken* event, NdQueue* queue)
+static gboolean on_dock_grab_broken_event(GtkWidget* widget, GdkEventGrabBroken* event, NdQueue* queue)
 {
+    g_info("[notify] dock grab broken event");
     grab_notify(queue, FALSE);
-
     return FALSE;
 }
 
-static gboolean
-on_dock_key_release(GtkWidget* widget, GdkEventKey* event, NdQueue* queue)
+static gboolean on_dock_key_release(GtkWidget* widget, GdkEventKey* event, NdQueue* queue)
 {
     if (event->keyval == GDK_KEY_Escape) {
         popdown_dock(queue);
@@ -265,23 +224,18 @@ on_dock_key_release(GtkWidget* widget, GdkEventKey* event, NdQueue* queue)
     return TRUE;
 }
 
-static void
-remove_all(gpointer key, gpointer value, gpointer user_data)
+static void remove_all(gpointer key, gpointer value, gpointer user_data)
 {
     nd_stack_remove_all((NdStack*)value);
 }
 
-static void
-clear_stacks(NdQueue* queue)
+static void clear_stacks(NdQueue* queue)
 {
-    NotifyScreen* nscreen;
-
-    nscreen = queue->priv->screen;
-    g_hash_table_foreach(nscreen->stacks, remove_all, NULL);
+    const NotifyScreen* nScreen = queue->priv->screen;
+    g_hash_table_foreach(nScreen->stacks, remove_all, NULL);
 }
 
-static void
-_nd_queue_remove_all(NdQueue* queue)
+static void _nd_queue_remove_all(NdQueue* queue)
 {
     GHashTableIter iter;
     gpointer key, value;
@@ -292,7 +246,6 @@ _nd_queue_remove_all(NdQueue* queue)
     g_hash_table_iter_init(&iter, queue->priv->notifications);
     while (g_hash_table_iter_next(&iter, &key, &value)) {
         NdNotification* n = ND_NOTIFICATION(value);
-
         g_signal_handlers_disconnect_by_func(n, G_CALLBACK (on_notification_close), queue);
         nd_notification_close(n, ND_NOTIFICATION_CLOSED_USER);
         g_hash_table_iter_remove(&iter);
@@ -301,23 +254,18 @@ _nd_queue_remove_all(NdQueue* queue)
     queue_update(queue);
 }
 
-static void
-on_clear_all_clicked(GtkButton* button, NdQueue* queue)
+static void on_clear_all_clicked(GtkButton* button, NdQueue* queue)
 {
     _nd_queue_remove_all(queue);
 }
 
-static gboolean
-on_dock_button_press(GtkWidget* widget, GdkEventButton* event, NdQueue* queue)
+static gboolean on_dock_button_press(GtkWidget* widget, GdkEventButton* event, NdQueue* queue)
 {
-    GtkWidget* event_widget;
+    C_RETURN_VAL_IF_OK(event->type != GDK_BUTTON_PRESS, false);
 
-    if (event->type != GDK_BUTTON_PRESS) {
-        return FALSE;
-    }
-    event_widget = gtk_get_event_widget((GdkEvent*)event);
-    g_debug("Button press: %p dock=%p", event_widget, widget);
-    if (event_widget == widget) {
+    GtkWidget* eventWidget = gtk_get_event_widget((GdkEvent*)event);
+    g_info("Button press: %p dock=%p", eventWidget, widget);
+    if (eventWidget == widget) {
         release_grab(queue, event);
         return TRUE;
     }
@@ -325,8 +273,7 @@ on_dock_button_press(GtkWidget* widget, GdkEventButton* event, NdQueue* queue)
     return FALSE;
 }
 
-static void
-create_dock(NdQueue* queue)
+static void create_dock(NdQueue* queue)
 {
     GtkWidget* frame;
     GtkWidget* box;
@@ -366,8 +313,7 @@ create_dock(NdQueue* queue)
     gtk_box_pack_end(GTK_BOX(box), button, FALSE, FALSE, 0);
 }
 
-static void
-nd_queue_init(NdQueue* queue)
+static void nd_queue_init(NdQueue* queue)
 {
     queue->priv = nd_queue_get_instance_private(queue);
     queue->priv->notifications = g_hash_table_new_full(NULL, NULL, NULL, g_object_unref);
@@ -378,21 +324,15 @@ nd_queue_init(NdQueue* queue)
     create_screen(queue);
 }
 
-static void
-destroy_screen(NdQueue* queue)
+static void destroy_screen(NdQueue* queue)
 {
-    GdkDisplay* display;
-    GdkScreen* screen;
-    GdkWindow* gdkwindow;
-
-    display = gdk_display_get_default();
-    screen = gdk_display_get_default_screen(display);
+    GdkDisplay* display = gdk_display_get_default();
+    GdkScreen* screen = gdk_display_get_default_screen(display);
 
     g_signal_handlers_disconnect_by_func(display, G_CALLBACK (monitor_added_cb), queue);
-
     g_signal_handlers_disconnect_by_func(display, G_CALLBACK (monitor_removed_cb), queue);
 
-    gdkwindow = gdk_screen_get_root_window(screen);
+    GdkWindow* gdkwindow = gdk_screen_get_root_window(screen);
     gdk_window_remove_filter(gdkwindow, (GdkFilterFunc)screen_xevent_filter, queue->priv->screen);
 
     g_hash_table_destroy(queue->priv->screen->stacks);
@@ -402,16 +342,12 @@ destroy_screen(NdQueue* queue)
     queue->priv->screen = NULL;
 }
 
-static void
-nd_queue_finalize(GObject* object)
+static void nd_queue_finalize(GObject* object)
 {
-    NdQueue* queue;
-
     g_return_if_fail(object != NULL);
     g_return_if_fail(ND_IS_QUEUE (object));
 
-    queue = ND_QUEUE(object);
-
+    NdQueue* queue = ND_QUEUE(object);
     g_return_if_fail(queue->priv != NULL);
 
     g_hash_table_destroy(queue->priv->notifications);
@@ -432,20 +368,16 @@ nd_queue_finalize(GObject* object)
     G_OBJECT_CLASS(nd_queue_parent_class)->finalize(object);
 }
 
-NdNotification*
-nd_queue_lookup(NdQueue* queue, guint id)
+NdNotification* nd_queue_lookup(NdQueue* queue, guint id)
 {
-    NdNotification* notification;
-
     g_return_val_if_fail(ND_IS_QUEUE (queue), NULL);
 
-    notification = g_hash_table_lookup(queue->priv->notifications, GUINT_TO_POINTER(id));
+    NdNotification* notification = g_hash_table_lookup(queue->priv->notifications, GUINT_TO_POINTER(id));
 
     return notification;
 }
 
-guint
-nd_queue_length(NdQueue* queue)
+guint nd_queue_length(NdQueue* queue)
 {
     g_return_val_if_fail(ND_IS_QUEUE (queue), 0);
 
@@ -454,47 +386,41 @@ nd_queue_length(NdQueue* queue)
 
 static void on_bubble_destroyed(GDBubble* bubble, NdQueue* queue)
 {
-    NdNotification* notification;
-
-    g_debug("Bubble destroyed");
-    notification = gd_bubble_get_notification(bubble);
+    g_info("[notify] Bubble destroyed");
+    NdNotification* notification = gd_bubble_get_notification(bubble);
 
     nd_notification_set_is_queued(notification, FALSE);
 
     if (nd_notification_get_is_transient(notification)) {
-        g_debug("Bubble is transient");
+        g_info("[notify] Bubble is transient");
         nd_notification_close(notification, ND_NOTIFICATION_CLOSED_EXPIRED);
     }
 
     queue_update(queue);
 }
 
-static void
-maybe_show_notification(NdQueue* queue)
+static void maybe_show_notification(NdQueue* queue)
 {
-    /* don't show bubbles when dock is showing */
     if (gtk_widget_get_visible(queue->priv->dock)) {
-        g_debug("Dock is showing");
+        g_info("[notify] Dock is showing");
         return;
     }
 
     NdStack* stack = get_stack_with_pointer(queue);
     if (stack == NULL) {
-        g_debug("Monitor not found");
+        g_info("[notify] Monitor not found");
         return;
     }
 
     GList* list = nd_stack_get_bubbles(stack);
     if (g_list_length(list) > 0) {
-        /* already showing bubbles */
-        g_debug("Already showing bubbles");
+        g_info("[notify] Already showing bubbles");
         return;
     }
 
     const gpointer id = g_queue_pop_tail(queue->priv->queue);
     if (id == NULL) {
-        /* Nothing to do */
-        g_debug("No queued notifications");
+        g_info("[notify] No queued notifications");
         return;
     }
 
@@ -507,16 +433,12 @@ maybe_show_notification(NdQueue* queue)
     nd_stack_add_bubble(stack, bubble);
 }
 
-static int
-collate_notifications(NdNotification* a, NdNotification* b)
+static int collate_notifications(NdNotification* a, NdNotification* b)
 {
-    gint64 time_a;
-    gint64 time_b;
+    gint64 timeA = nd_notification_get_update_time(a);
+    gint64 timeB = nd_notification_get_update_time(b);
 
-    time_a = nd_notification_get_update_time(a);
-    time_b = nd_notification_get_update_time(b);
-
-    if (time_a > time_b) {
+    if (timeA > timeB) {
         return 1;
     }
     else {
@@ -524,8 +446,7 @@ collate_notifications(NdNotification* a, NdNotification* b)
     }
 }
 
-static void
-update_dock(NdQueue* queue)
+static void update_dock(NdQueue* queue)
 {
     GtkWidget* child;
     GList* list;
@@ -588,36 +509,27 @@ update_dock(NdQueue* queue)
     g_list_free(list);
 }
 
-static void
-show_all_cb(GtkWidget* widget, gpointer user_data)
+static void show_all_cb(GtkWidget* widget, gpointer user_data)
 {
     gtk_widget_show_all(widget);
 }
 
-static gboolean
-popup_dock(NdQueue* queue, guint time)
+static gboolean popup_dock(NdQueue* queue, guint time)
 {
-    GdkRectangle area;
-    GtkOrientation orientation;
-    GdkDisplay* display;
-    GdkScreen* screen;
+    int x = 0;
+    int y = 0;
     gboolean res;
-    int x;
-    int y;
-    GdkMonitor* monitor;
-    GdkRectangle monitor_rect;
+    GdkRectangle area;
+    GdkScreen* screen;
     GtkRequisition dock_req;
-    GtkStatusIcon* status_icon;
-    GdkWindow* window;
-    GdkSeat* seat;
-    GdkSeatCapabilities capabilities;
-    GdkGrabStatus status;
+    GdkRectangle monitor_rect;
+    GtkOrientation orientation;
 
     update_dock(queue);
 
-    status_icon = queue->priv->status_icon;
+    GtkStatusIcon* statusIcon = queue->priv->status_icon;
 
-    G_GNUC_BEGIN_IGNORE_DEPRECATIONS res = gtk_status_icon_get_geometry(status_icon, &screen, &area, &orientation);
+    G_GNUC_BEGIN_IGNORE_DEPRECATIONS res = gtk_status_icon_get_geometry(statusIcon, &screen, &area, &orientation);
     G_GNUC_END_IGNORE_DEPRECATIONS if (!res) {
         g_warning("Unable to determine geometry of status icon");
         return FALSE;
@@ -626,7 +538,7 @@ popup_dock(NdQueue* queue, guint time)
     /* position roughly */
     gtk_window_set_screen(GTK_WINDOW(queue->priv->dock), screen);
 
-    monitor = gdk_display_get_monitor_at_point(gdk_screen_get_display(screen), area.x, area.y);
+    GdkMonitor* monitor = gdk_display_get_monitor_at_point(gdk_screen_get_display(screen), area.x, area.y);
     gdk_monitor_get_geometry(monitor, &monitor_rect);
 
     gtk_container_foreach(GTK_CONTAINER(queue->priv->dock), show_all_cb, NULL);
@@ -673,13 +585,13 @@ popup_dock(NdQueue* queue, guint time)
     /* grab focus */
     gtk_grab_add(queue->priv->dock);
 
-    display = gtk_widget_get_display(queue->priv->dock);
-    window = gtk_widget_get_window(queue->priv->dock);
-    seat = gdk_display_get_default_seat(display);
+    GdkDisplay* display = gtk_widget_get_display(queue->priv->dock);
+    GdkWindow* window = gtk_widget_get_window(queue->priv->dock);
+    GdkSeat* seat = gdk_display_get_default_seat(display);
 
-    capabilities = GDK_SEAT_CAPABILITY_POINTER | GDK_SEAT_CAPABILITY_KEYBOARD;
+    GdkSeatCapabilities capabilities = GDK_SEAT_CAPABILITY_POINTER | GDK_SEAT_CAPABILITY_KEYBOARD;
 
-    status = gdk_seat_grab(seat, window, capabilities, TRUE, NULL, NULL, NULL, NULL);
+    GdkGrabStatus status = gdk_seat_grab(seat, window, capabilities, TRUE, NULL, NULL, NULL, NULL);
 
     if (status != GDK_GRAB_SUCCESS) {
         ungrab(queue, time);
@@ -691,31 +603,25 @@ popup_dock(NdQueue* queue, guint time)
     return TRUE;
 }
 
-static void
-show_dock(NdQueue* queue)
+static void show_dock(NdQueue* queue)
 {
-    /* clear the bubble queue since the user will be looking at a
-       full list now */
     clear_stacks(queue);
     g_queue_clear(queue->priv->queue);
 
     popup_dock(queue, GDK_CURRENT_TIME);
 }
 
-static void
-on_status_icon_popup_menu(GtkStatusIcon* status_icon, guint button, guint activate_time, NdQueue* queue)
+static void on_status_icon_popup_menu(GtkStatusIcon* statusIcon, guint button, guint activateTime, NdQueue* queue)
 {
     show_dock(queue);
 }
 
-static void
-on_status_icon_activate(GtkStatusIcon* status_icon, NdQueue* queue)
+static void on_status_icon_activate(GtkStatusIcon* status_icon, NdQueue* queue)
 {
     show_dock(queue);
 }
 
-static void
-on_status_icon_visible_notify(GtkStatusIcon* icon, GParamSpec* pspec, NdQueue* queue)
+static void on_status_icon_visible_notify(GtkStatusIcon* icon, GParamSpec* pspec, NdQueue* queue)
 {
     gboolean visible;
 
@@ -727,14 +633,9 @@ on_status_icon_visible_notify(GtkStatusIcon* icon, GParamSpec* pspec, NdQueue* q
     }
 }
 
-static gboolean
-update_idle(NdQueue* queue)
+static gboolean update_idle(NdQueue* queue)
 {
-    int num;
-
-    num = g_hash_table_size(queue->priv->notifications);
-
-    /* Show the status icon when their are stored notifications */
+    const int num = g_hash_table_size(queue->priv->notifications);
     if (num > 0) {
         if (gtk_widget_get_visible(queue->priv->dock)) {
             update_dock(queue);
@@ -749,10 +650,7 @@ update_idle(NdQueue* queue)
         }
 
         if (queue->priv->numerable_icon == NULL) {
-            GIcon* icon;
-            /* FIXME: use a more appropriate icon here */
-            icon = g_themed_icon_new("mail-message-new");
-
+            GIcon* icon = g_themed_icon_new("mail-message-new");
             G_GNUC_BEGIN_IGNORE_DEPRECATIONS queue->priv->numerable_icon = gtk_numerable_icon_new(icon);
             G_GNUC_END_IGNORE_DEPRECATIONS g_object_unref(icon);
         }
@@ -766,7 +664,6 @@ update_idle(NdQueue* queue)
         if (gtk_widget_get_visible(queue->priv->dock)) {
             popdown_dock(queue);
         }
-
         if (queue->priv->status_icon != NULL) {
             g_object_unref(queue->priv->status_icon);
             queue->priv->status_icon = NULL;
@@ -774,11 +671,11 @@ update_idle(NdQueue* queue)
     }
 
     queue->priv->update_id = 0;
+
     return FALSE;
 }
 
-static void
-queue_update(NdQueue* queue)
+static void queue_update(NdQueue* queue)
 {
     if (queue->priv->update_id > 0) {
         g_source_remove(queue->priv->update_id);
@@ -787,15 +684,10 @@ queue_update(NdQueue* queue)
     queue->priv->update_id = g_idle_add((GSourceFunc)update_idle, queue);
 }
 
-static void
-_nd_queue_remove(NdQueue* queue, NdNotification* notification)
+static void _nd_queue_remove(NdQueue* queue, NdNotification* notification)
 {
-    guint id;
-
-    id = nd_notification_get_id(notification);
-    g_debug("Removing id %u", id);
-
-    /* FIXME: withdraw currently showing bubbles */
+    const guint id = nd_notification_get_id(notification);
+    g_info("[notify] Removing id %u", id);
 
     g_signal_handlers_disconnect_by_func(notification, G_CALLBACK (on_notification_close), queue);
 
@@ -807,35 +699,28 @@ _nd_queue_remove(NdQueue* queue, NdNotification* notification)
     queue_update(queue);
 }
 
-static void
-on_notification_close(NdNotification* notification, int reason, NdQueue* queue)
+static void on_notification_close(NdNotification* notification, int reason, NdQueue* queue)
 {
-    g_debug("Notification closed - removing from queue");
+    g_info("[notify] Notification closed - removing from queue");
     _nd_queue_remove(queue, notification);
 }
 
-void
-nd_queue_remove_for_id(NdQueue* queue, guint id)
+void nd_queue_remove_for_id(NdQueue* queue, guint id)
 {
-    NdNotification* notification;
-
     g_return_if_fail(ND_IS_QUEUE (queue));
 
-    notification = g_hash_table_lookup(queue->priv->notifications, GUINT_TO_POINTER(id));
+    NdNotification* notification = g_hash_table_lookup(queue->priv->notifications, GUINT_TO_POINTER(id));
     if (notification != NULL) {
         _nd_queue_remove(queue, notification);
     }
 }
 
-void
-nd_queue_add(NdQueue* queue, NdNotification* notification)
+void nd_queue_add(NdQueue* queue, NdNotification* notification)
 {
-    guint id;
-
     g_return_if_fail(ND_IS_QUEUE (queue));
 
-    id = nd_notification_get_id(notification);
-    g_debug("Adding id %u", id);
+    const guint id = nd_notification_get_id(notification);
+    g_info("[notify] Adding id %u", id);
     g_hash_table_insert(queue->priv->notifications, GUINT_TO_POINTER(id), g_object_ref(notification));
     g_queue_push_head(queue->priv->queue, GUINT_TO_POINTER(id));
 
@@ -844,8 +729,7 @@ nd_queue_add(NdQueue* queue, NdNotification* notification)
     queue_update(queue);
 }
 
-NdQueue*
-nd_queue_new(void)
+NdQueue* nd_queue_new(void)
 {
     return g_object_new(ND_TYPE_QUEUE, NULL);
 }

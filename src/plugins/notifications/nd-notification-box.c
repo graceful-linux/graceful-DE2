@@ -60,47 +60,40 @@ nd_notification_box_class_init(NdNotificationBoxClass* klass)
     widget_class->button_release_event = nd_notification_box_button_release_event;
 }
 
-static void
-on_close_button_clicked(GtkButton* button, NdNotificationBox* notification_box)
+static void on_close_button_clicked(GtkButton* button, NdNotificationBox* notificationBox)
 {
-    nd_notification_close(notification_box->priv->notification, ND_NOTIFICATION_CLOSED_USER);
+    nd_notification_close(notificationBox->priv->notification, ND_NOTIFICATION_CLOSED_USER);
 }
 
-static void
-on_action_clicked(GtkButton* button, GdkEventButton* event, NdNotificationBox* notification_box)
+static void on_action_clicked(GtkButton* button, GdkEventButton* event, NdNotificationBox* notificationBox)
 {
     const char* key = g_object_get_data(G_OBJECT(button), "_action_key");
 
-    nd_notification_action_invoked(notification_box->priv->notification, key);
+    nd_notification_action_invoked(notificationBox->priv->notification, key);
 }
 
-static GtkWidget*
-create_notification_action(NdNotificationBox* box, NdNotification* notification, const char* text, const char* key)
+static GtkWidget* create_notification_action(NdNotificationBox* box, NdNotification* notification, const char* text, const char* key)
 {
-    GtkWidget* button;
-    GtkWidget* hbox;
-    GdkPixbuf* pixbuf;
-    char* buf;
+    char* buf = NULL;
 
-    button = gtk_button_new();
+    GtkWidget* button = gtk_button_new();
     gtk_widget_show(button);
     gtk_button_set_relief(GTK_BUTTON(button), GTK_RELIEF_NONE);
     gtk_container_set_border_width(GTK_CONTAINER(button), 0);
 
-    hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
+    GtkWidget* hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
     gtk_widget_show(hbox);
     gtk_container_add(GTK_CONTAINER(button), hbox);
 
-    pixbuf = NULL;
+    GdkPixbuf* pixbuf = NULL;
     /* try to load an icon if requested */
     if (nd_notification_get_action_icons(box->priv->notification)) {
-        pixbuf = gtk_icon_theme_load_icon(gtk_icon_theme_get_for_screen(gtk_widget_get_screen(GTK_WIDGET(box))), key, 20, GTK_ICON_LOOKUP_USE_BUILTIN, NULL);
+        pixbuf = gtk_icon_theme_load_icon(gtk_icon_theme_get_for_screen(gtk_widget_get_screen(GTK_WIDGET(box))),
+            key, 20, GTK_ICON_LOOKUP_USE_BUILTIN, NULL);
     }
 
     if (pixbuf != NULL) {
-        GtkWidget* image;
-
-        image = gtk_image_new_from_pixbuf(pixbuf);
+        GtkWidget* image = gtk_image_new_from_pixbuf(pixbuf);
         g_object_unref(pixbuf);
         atk_object_set_name(gtk_widget_get_accessible(GTK_WIDGET(button)), text);
         gtk_widget_show(image);
@@ -109,9 +102,7 @@ create_notification_action(NdNotificationBox* box, NdNotification* notification,
         gtk_widget_set_valign(image, GTK_ALIGN_CENTER);
     }
     else {
-        GtkWidget* label;
-
-        label = gtk_label_new(NULL);
+        GtkWidget* label = gtk_label_new(NULL);
         gtk_widget_show(label);
         gtk_box_pack_start(GTK_BOX(hbox), label, FALSE, FALSE, 0);
         gtk_label_set_xalign(GTK_LABEL(label), 0.0);
@@ -125,14 +116,13 @@ create_notification_action(NdNotificationBox* box, NdNotification* notification,
     return button;
 }
 
-static void
-remove_item(GtkWidget* item, gpointer data)
+static void remove_item(GtkWidget* item, gpointer data)
 {
+    g_info("[notify] remove item");
     gtk_container_remove(GTK_CONTAINER(gtk_widget_get_parent (item)), item);
 }
 
-static void
-update_notification_box(NdNotificationBox* notification_box)
+static void update_notification_box(NdNotificationBox* notification_box)
 {
     gboolean have_icon;
     gboolean have_body;
@@ -222,21 +212,14 @@ update_notification_box(NdNotificationBox* notification_box)
     }
 }
 
-static void
-nd_notification_box_init(NdNotificationBox* notification_box)
+static void nd_notification_box_init(NdNotificationBox* notification_box)
 {
-    GtkWidget* box;
-    GtkWidget* image;
-    GtkWidget* vbox;
-    AtkObject* atkobj;
-
     notification_box->priv = nd_notification_box_get_instance_private(notification_box);
-    box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
+    GtkWidget* box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
     gtk_container_add(GTK_CONTAINER(notification_box), box);
     gtk_widget_show(box);
 
     /* Add icon */
-
     notification_box->priv->icon = gtk_image_new();
     gtk_widget_set_valign(notification_box->priv->icon, GTK_ALIGN_START);
     gtk_widget_set_margin_top(notification_box->priv->icon, 5);
@@ -246,8 +229,7 @@ nd_notification_box_init(NdNotificationBox* notification_box)
     gtk_box_pack_start(GTK_BOX(box), notification_box->priv->icon, FALSE, FALSE, 0);
 
     /* Add vbox */
-
-    vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 6);
+    GtkWidget* vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 6);
     gtk_widget_show(vbox);
     gtk_box_pack_start(GTK_BOX(box), vbox, TRUE, TRUE, 0);
     gtk_container_set_border_width(GTK_CONTAINER(vbox), 10);
@@ -264,12 +246,12 @@ nd_notification_box_init(NdNotificationBox* notification_box)
     gtk_container_set_border_width(GTK_CONTAINER(notification_box->priv->close_button), 0);
     g_signal_connect(G_OBJECT (notification_box->priv->close_button), "clicked", G_CALLBACK (on_close_button_clicked), notification_box);
 
-    atkobj = gtk_widget_get_accessible(notification_box->priv->close_button);
+    AtkObject* atkobj = gtk_widget_get_accessible(notification_box->priv->close_button);
     atk_action_set_description(ATK_ACTION(atkobj), 0, _("Closes the notification."));
     atk_object_set_name(atkobj, "");
     atk_object_set_description(atkobj, _("Closes the notification."));
 
-    image = gtk_image_new_from_icon_name("window-close-symbolic", GTK_ICON_SIZE_MENU);
+    GtkWidget* image = gtk_image_new_from_icon_name("window-close-symbolic", GTK_ICON_SIZE_MENU);
     gtk_widget_show(image);
     gtk_container_add(GTK_CONTAINER(notification_box->priv->close_button), image);
 
@@ -312,40 +294,30 @@ nd_notification_box_init(NdNotificationBox* notification_box)
     gtk_box_pack_start(GTK_BOX(vbox), notification_box->priv->actions_box, FALSE, TRUE, 0);
 }
 
-static void
-on_notification_changed(NdNotification* notification, NdNotificationBox* notification_box)
+static void on_notification_changed(NdNotification* notification, NdNotificationBox* notification_box)
 {
     update_notification_box(notification_box);
 }
 
-static void
-nd_notification_box_finalize(GObject* object)
+static void nd_notification_box_finalize(GObject* object)
 {
-    NdNotificationBox* notification_box;
-
     g_return_if_fail(object != NULL);
     g_return_if_fail(ND_IS_NOTIFICATION_BOX (object));
 
-    notification_box = ND_NOTIFICATION_BOX(object);
-
-    g_return_if_fail(notification_box->priv != NULL);
-
-    g_signal_handlers_disconnect_by_func(notification_box->priv->notification, G_CALLBACK (on_notification_changed), notification_box);
-
-    g_object_unref(notification_box->priv->notification);
+    NdNotificationBox* notificationBox = ND_NOTIFICATION_BOX(object);
+    g_return_if_fail(notificationBox->priv != NULL);
+    g_signal_handlers_disconnect_by_func(notificationBox->priv->notification, G_CALLBACK (on_notification_changed), notificationBox);
+    g_object_unref(notificationBox->priv->notification);
 
     G_OBJECT_CLASS(nd_notification_box_parent_class)->finalize(object);
 }
 
-NdNotificationBox*
-nd_notification_box_new_for_notification(NdNotification* notification)
+NdNotificationBox* nd_notification_box_new_for_notification(NdNotification* notification)
 {
-    NdNotificationBox* notification_box;
+    NdNotificationBox* notificationBox = g_object_new(ND_TYPE_NOTIFICATION_BOX, "visible-window", FALSE, NULL);
+    notificationBox->priv->notification = g_object_ref(notification);
+    g_signal_connect(notification, "changed", G_CALLBACK (on_notification_changed), notificationBox);
+    update_notification_box(notificationBox);
 
-    notification_box = g_object_new(ND_TYPE_NOTIFICATION_BOX, "visible-window", FALSE, NULL);
-    notification_box->priv->notification = g_object_ref(notification);
-    g_signal_connect(notification, "changed", G_CALLBACK (on_notification_changed), notification_box);
-    update_notification_box(notification_box);
-
-    return notification_box;
+    return notificationBox;
 }

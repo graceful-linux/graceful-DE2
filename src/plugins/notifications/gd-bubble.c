@@ -180,7 +180,6 @@ static void update_bubble(GDBubble* bubble)
     }
     else {
         str = g_markup_escape_text(body, -1);
-
         gtk_label_set_text(GTK_LABEL(priv->bodyLabel), str);
         g_free(str);
     }
@@ -229,12 +228,17 @@ static void update_bubble(GDBubble* bubble)
 
 static void notification_changed_cb(NdNotification* notification, GDBubble* bubble)
 {
+    g_info("[notify] notification change");
     update_bubble(bubble);
 }
 
 static void notification_closed_cb(NdNotification* notification, gint reason, GDBubble* bubble)
 {
-    if (reason == ND_NOTIFICATION_CLOSED_API) gtk_widget_destroy(GTK_WIDGET(bubble));
+    g_info("[notify] notification closed");
+
+    if (reason == ND_NOTIFICATION_CLOSED_API) {
+        gtk_widget_destroy(GTK_WIDGET(bubble));
+    }
 }
 
 static void gd_bubble_dispose(GObject* object)

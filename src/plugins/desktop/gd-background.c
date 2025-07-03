@@ -43,7 +43,9 @@ enum { READY, CHANGED, LAST_SIGNAL };
 
 static guint background_signals[LAST_SIGNAL] = {0};
 
-G_DEFINE_TYPE(GDBackground, gd_background, G_TYPE_OBJECT)static void free_fade_data(FadeData* data)
+G_DEFINE_TYPE(GDBackground, gd_background, G_TYPE_OBJECT)
+
+static void free_fade_data(FadeData* data)
 {
     if (data->timeout_id != 0) {
         g_source_remove(data->timeout_id);
@@ -55,8 +57,7 @@ G_DEFINE_TYPE(GDBackground, gd_background, G_TYPE_OBJECT)static void free_fade_d
     g_free(data);
 }
 
-static bool
-fade_cb(gpointer user_data)
+static bool fade_cb(gpointer user_data)
 {
     GDBackground* self;
     FadeData* fade;
@@ -73,7 +74,6 @@ fade_cb(gpointer user_data)
     if (fade->is_first_frame && percent_done > 0.33) {
         fade->total_duration *= 1.5;
         fade->is_first_frame = FALSE;
-
         return fade_cb(self);
     }
 
@@ -98,21 +98,14 @@ fade_cb(gpointer user_data)
     return G_SOURCE_REMOVE;
 }
 
-static void
-change(GDBackground* self, bool fade)
+static void change(GDBackground* self, bool fade)
 {
-    GdkDisplay* display;
-    GdkScreen* screen;
-    GdkWindow* root;
-    int width;
-    int height;
+    GdkDisplay* display = gtk_widget_get_display(self->window);
+    GdkScreen* screen = gtk_widget_get_screen(self->window);
+    GdkWindow* root = gdk_screen_get_root_window(screen);
 
-    display = gtk_widget_get_display(self->window);
-    screen = gtk_widget_get_screen(self->window);
-    root = gdk_screen_get_root_window(screen);
-
-    width = gd_desktop_window_get_width(GD_DESKTOP_WINDOW(self->window));
-    height = gd_desktop_window_get_height(GD_DESKTOP_WINDOW(self->window));
+    int width = gd_desktop_window_get_width(GD_DESKTOP_WINDOW(self->window));
+    int height = gd_desktop_window_get_height(GD_DESKTOP_WINDOW(self->window));
 
     g_clear_pointer(&self->fade_data, free_fade_data);
 
@@ -154,11 +147,9 @@ typedef struct
 } ChangeData;
 
 static bool
-change_cb(gpointer user_data)
+change_cb(gpointer uData)
 {
-    ChangeData* data;
-
-    data = (ChangeData*)user_data;
+    ChangeData* data = (ChangeData*) uData;
 
     change(data->background, data->fade);
     data->background->change_id = 0;
@@ -166,8 +157,7 @@ change_cb(gpointer user_data)
     return G_SOURCE_REMOVE;
 }
 
-static void
-queue_change(GDBackground* self, bool fade)
+static void queue_change(GDBackground* self, bool fade)
 {
     ChangeData* data;
 
@@ -180,7 +170,7 @@ queue_change(GDBackground* self, bool fade)
 
     self->change_id = g_idle_add_full(G_PRIORITY_DEFAULT_IDLE, (void*) change_cb, data, g_free);
 
-    g_source_set_name_by_id(self->change_id, "[gnome-flashback] change_cb");
+    g_source_set_name_by_id(self->change_id, "[graceful-DE2] change_cb");
 }
 
 static bool
@@ -299,7 +289,8 @@ gd_background_set_property(GObject* object, guint property_id, const GValue* val
 static void
 install_properties(GObjectClass* object_class)
 {
-    background_properties[PROP_WINDOW] = g_param_spec_object("window", "window", "window", GTK_TYPE_WIDGET, G_PARAM_CONSTRUCT_ONLY | G_PARAM_WRITABLE | G_PARAM_STATIC_STRINGS);
+    background_properties[PROP_WINDOW] = g_param_spec_object("window",
+        "window", "window", GTK_TYPE_WIDGET, G_PARAM_CONSTRUCT_ONLY | G_PARAM_WRITABLE | G_PARAM_STATIC_STRINGS);
 
     g_object_class_install_properties(object_class, LAST_PROP, background_properties);
 }
@@ -307,40 +298,36 @@ install_properties(GObjectClass* object_class)
 static void
 install_signals(void)
 {
-    background_signals[READY] = g_signal_new("ready", GD_TYPE_BACKGROUND, G_SIGNAL_RUN_LAST, 0, NULL, NULL, NULL, G_TYPE_NONE, 0);
+    background_signals[READY] = g_signal_new("ready",
+        GD_TYPE_BACKGROUND, G_SIGNAL_RUN_LAST, 0, NULL, NULL, NULL, G_TYPE_NONE, 0);
 
-    background_signals[CHANGED] = g_signal_new("changed", GD_TYPE_BACKGROUND, G_SIGNAL_RUN_LAST, 0, NULL, NULL, NULL, G_TYPE_NONE, 0);
+    background_signals[CHANGED] = g_signal_new("changed",
+        GD_TYPE_BACKGROUND, G_SIGNAL_RUN_LAST, 0, NULL, NULL, NULL, G_TYPE_NONE, 0);
 }
 
-static void
-gd_background_class_init(GDBackgroundClass* self_class)
+static void gd_background_class_init(GDBackgroundClass* self_class)
 {
-    GObjectClass* object_class;
+    GObjectClass* oc = G_OBJECT_CLASS(self_class);
 
-    object_class = G_OBJECT_CLASS(self_class);
+    oc->constructed = gd_background_constructed;
+    oc->dispose = gd_background_dispose;
+    oc->finalize = gd_background_finalize;
+    oc->set_property = gd_background_set_property;
 
-    object_class->constructed = gd_background_constructed;
-    object_class->dispose = gd_background_dispose;
-    object_class->finalize = gd_background_finalize;
-    object_class->set_property = gd_background_set_property;
-
-    install_properties(object_class);
+    install_properties(oc);
     install_signals();
 }
 
-static void
-gd_background_init(GDBackground* self)
+static void gd_background_init(GDBackground* self)
 {
 }
 
-GDBackground*
-gd_background_new(GtkWidget* window)
+GDBackground* gd_background_new(GtkWidget* window)
 {
     return g_object_new(GD_TYPE_BACKGROUND, "window", window, NULL);
 }
 
-GdkRGBA*
-gd_background_get_average_color(GDBackground* self)
+GdkRGBA* gd_background_get_average_color(GDBackground* self)
 {
     return gd_bg_get_average_color_from_surface(self->surface);
 }

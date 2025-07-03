@@ -65,8 +65,8 @@ static void name_acquired_cb (GDBusConnection* conn, const char* name, void* uDa
 
     gd_session_manager_gen_proxy_new_for_bus (G_BUS_TYPE_SESSION,
                                               flags,
-                                              "org.graceful.SessionManager",
-                                              "/org/graceful/SessionManager",
+                                              "org.graceful.DE2.SessionManager",
+                                              "/org/graceful/DE2/SessionManager",
                                               self->cancellable,
                                               session_manager_ready_cb,
                                               self);
@@ -221,7 +221,7 @@ static void register_client_cb (GObject* sObj, GAsyncResult* res, void* uData)
 
     gd_sm_client_private_gen_proxy_new_for_bus (G_BUS_TYPE_SESSION,
                                                 G_DBUS_PROXY_FLAGS_DO_NOT_LOAD_PROPERTIES,
-                                                "org.graceful.SessionManager",
+                                                "org.graceful.DE2.SessionManager",
                                                 self->clientId,
                                                 self->cancellable,
                                                 client_private_ready_cb,
