@@ -56,7 +56,7 @@ static void gd_application_init (GDApplication* obj)
      * 监听窗口管理器进程变化，以及处理指定快捷键相关功能(适用于GNOME 2.x, metacity)
      */
     obj->wm = gd_wm_new();
-    obj->panel = gd_panel_new (NULL);
+    obj->panel = gd_panel_new ("/org/graceful/DE2/panel");
     obj->backend = gd_backend_new (GD_BACKEND_TYPE_X11_CM);
     obj->uiScaling = gd_ui_scaling_new (obj->backend);
 
@@ -131,7 +131,7 @@ static void settings_changed (GSettings* settings, const gchar* key, void* uData
     GDApplication* application = GD_APPLICATION (uData);
     GDMonitorManager* mm = gd_backend_get_monitor_manager (application->backend);
 
-    g_info("settings changed for %s", key ? key : "(null)");
+    g_info("[main] settings changed for %s", key ? key : "(null)");
 
 #define SETTING_CHANGED(objName, settingName, funcName) \
     if (key == NULL || g_strcmp0 (key, settingName) == 0) { \
@@ -191,24 +191,21 @@ static void theme_changed (GtkSettings* settings, GParamSpec* pspec, GDApplicati
 
 static void update_theme (GDApplication* obj)
 {
-    GdkScreen *screen;
-    GtkSettings *settings;
-    gchar *theme_name;
-    gboolean prefer_dark;
     // GDSupportedTheme *theme;
-    gchar *resource;
     guint priority;
-    GtkCssProvider *css;
+    gboolean preferDark;
+    gchar* resource = NULL;
+    gchar* themeName = NULL;
 
-    screen = gdk_screen_get_default ();
-    settings = gtk_settings_get_default ();
+    GdkScreen *screen = gdk_screen_get_default ();
+    GtkSettings *settings = gtk_settings_get_default ();
 
     if (obj->provider != NULL) {
         gtk_style_context_remove_provider_for_screen (screen, obj->provider);
         g_clear_object (&obj->provider);
     }
 
-    g_object_get (settings, "gtk-theme-name", &theme_name, "gtk-application-prefer-dark-theme", &prefer_dark, NULL);
+    g_object_get (settings, "gtk-theme-name", &themeName, "gtk-application-prefer-dark-theme", &preferDark, NULL);
 
     // if (is_theme_supported (theme_name, &theme)) {
         // resource = get_theme_resource (theme, prefer_dark);
@@ -220,12 +217,12 @@ static void update_theme (GDApplication* obj)
         priority = GTK_STYLE_PROVIDER_PRIORITY_FALLBACK;
     }
 
-    css = gtk_css_provider_new ();
+    GtkCssProvider *css = gtk_css_provider_new ();
     obj->provider =  GTK_STYLE_PROVIDER (css);
 
     gtk_css_provider_load_from_resource (css, resource);
     gtk_style_context_add_provider_for_screen (screen, obj->provider, priority);
 
-    g_free (theme_name);
-    g_free (resource);
+    C_FREE_FUNC_NULL(themeName, g_free);
+    C_FREE_FUNC_NULL(resource, g_free);
 }

@@ -73,7 +73,7 @@ static void name_lost_cb (GDSession* session, bool wasAcquired, GDMainData* data
     main_loop_quit(data);
     C_RETURN_IF_OK(wasAcquired);
     data->exitStatus = EXIT_FAILURE;
-    g_warning(_("Failed to acquire bus name!"));
+    g_warning(_("[main] Failed to acquire bus name!"));
 }
 
 static void session_ready_cb (GDSession* session, bool isRunning, GDMainData* data)
@@ -125,7 +125,7 @@ static bool parse_arguments (int* argc, char**argv[])
     g_option_context_add_group(ctx, group);
 
     if (!g_option_context_parse(ctx, argc, argv, &error)) {
-        g_warning(_("Failed to parse command line argument: %s"), error->message);
+        g_warning(_("[main] Failed to parse command line argument: %s"), error->message);
         C_FREE_FUNC_NULL(error, g_error_free);
         C_FREE_FUNC_NULL(ctx, g_option_context_free);
         return false;

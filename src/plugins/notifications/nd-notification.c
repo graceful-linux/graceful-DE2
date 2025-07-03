@@ -46,13 +46,9 @@ G_DEFINE_TYPE(NdNotification, nd_notification, G_TYPE_OBJECT)
 
 static guint32 notification_serial = 1;
 
-static guint32
-get_next_notification_serial(void)
+static guint32 get_next_notification_serial(void)
 {
-    guint32 serial;
-
-    serial = notification_serial++;
-
+    guint32 serial = notification_serial++;
     if ((gint32)notification_serial < 0) {
         notification_serial = 1;
     }
@@ -60,23 +56,19 @@ get_next_notification_serial(void)
     return serial;
 }
 
-static void
-start_element_cb(GMarkupParseContext* context, const gchar* element_name, const gchar** attribute_names, const gchar** attribute_values, gpointer user_data, GError** error)
+static void start_element_cb(GMarkupParseContext* context, const gchar* element_name,
+    const gchar** attribute_names, const gchar** attribute_values, gpointer udata, GError** error)
 {
-    GString* str;
-    gint i;
+    C_RETURN_IF_OK(g_strcmp0(element_name, "a") == 0);
 
-    if (g_strcmp0(element_name, "a") == 0) return;
-
-    str = user_data;
+    GString* str = udata;
 
     g_string_append(str, "<");
     g_string_append(str, element_name);
 
+    gint i = 0;
     for (i = 0; attribute_names[i] != NULL; i++) {
-        gchar* tmp;
-
-        tmp = g_markup_escape_text(attribute_values[i], -1);
+        gchar* tmp = g_markup_escape_text(attribute_values[i], -1);
         g_string_append_printf(str, " %s=\"%s\"", attribute_names[i], tmp);
         g_free(tmp);
     }
@@ -84,39 +76,28 @@ start_element_cb(GMarkupParseContext* context, const gchar* element_name, const 
     g_string_append(str, ">");
 }
 
-static void
-end_element_cb(GMarkupParseContext* context, const gchar* element_name, gpointer user_data, GError** error)
+static void end_element_cb(GMarkupParseContext* context, const gchar* element_name, gpointer udata, GError** error)
 {
-    GString* str;
+    C_RETURN_IF_OK(g_strcmp0(element_name, "a") == 0);
 
-    if (g_strcmp0(element_name, "a") == 0) return;
-
-    str = user_data;
+    GString* str = udata;
 
     g_string_append_printf(str, "</%s>", element_name);
 }
 
-static void
-text_cb(GMarkupParseContext* context, const gchar* text, gsize text_len, gpointer user_data, GError** error)
+static void text_cb(GMarkupParseContext* context, const gchar* text, gsize textLen, gpointer udata, GError** error)
 {
-    GString* str;
-    gchar* tmp;
+    GString* str = udata;
 
-    str = user_data;
-
-    tmp = g_markup_escape_text(text, text_len);
+    gchar* tmp = g_markup_escape_text(text, textLen);
     g_string_append(str, tmp);
     g_free(tmp);
 }
 
-static bool
-parse_markup(const gchar* text, gchar** parsed_markup, GError** error)
+static bool parse_markup(const gchar* text, gchar** parsed_markup, GError** error)
 {
-    GString* str;
-    GMarkupParseContext* context;
-
-    str = g_string_new(NULL);
-    context = g_markup_parse_context_new(&(GMarkupParser){start_element_cb, end_element_cb, text_cb}, 0, str, NULL);
+    GString* str = g_string_new(NULL);
+    GMarkupParseContext* context = g_markup_parse_context_new(&(GMarkupParser){start_element_cb, end_element_cb, text_cb}, 0, str, NULL);
 
     if (!g_markup_parse_context_parse(context, "<markup>", -1, error)) {
         g_markup_parse_context_free(context);
@@ -152,14 +133,12 @@ parse_markup(const gchar* text, gchar** parsed_markup, GError** error)
     return TRUE;
 }
 
-static void
-free_pixels(guchar* pixels, gpointer user_data)
+static void free_pixels(guchar* pixels, gpointer udata)
 {
     g_free(pixels);
 }
 
-static GIcon*
-icon_from_data(GVariant* icon_data)
+static GIcon* icon_from_data(GVariant* icon_data)
 {
     bool has_alpha;
     int bits_per_sample;
@@ -188,8 +167,7 @@ icon_from_data(GVariant* icon_data)
     return G_ICON(pixbuf);
 }
 
-static GIcon*
-icon_from_path(const char* path)
+static GIcon* icon_from_path(const char* path)
 {
     GFile* file;
     GIcon* icon;
@@ -211,8 +189,7 @@ icon_from_path(const char* path)
     return icon;
 }
 
-static void
-update_icon(NdNotification* notification, const gchar* app_icon, GVariantDict* hints)
+static void update_icon(NdNotification* notification, const gchar* app_icon, GVariantDict* hints)
 {
     GIcon* icon;
     GVariant* image_data;
@@ -238,22 +215,18 @@ update_icon(NdNotification* notification, const gchar* app_icon, GVariantDict* h
     notification->icon = icon;
 }
 
-static void
-nd_notification_class_init(NdNotificationClass* class)
+static void nd_notification_class_init(NdNotificationClass* class)
 {
-    GObjectClass* gobject_class;
+    GObjectClass* go = G_OBJECT_CLASS(class);
 
-    gobject_class = G_OBJECT_CLASS(class);
-
-    gobject_class->finalize = nd_notification_finalize;
+    go->finalize = nd_notification_finalize;
 
     signals[CHANGED] = g_signal_new("changed", G_TYPE_FROM_CLASS(class), G_SIGNAL_RUN_LAST, 0, NULL, NULL, g_cclosure_marshal_VOID__VOID, G_TYPE_NONE, 0);
     signals[CLOSED] = g_signal_new("closed", G_TYPE_FROM_CLASS(class), G_SIGNAL_RUN_LAST, 0, NULL, NULL, g_cclosure_marshal_VOID__INT, G_TYPE_NONE, 1, G_TYPE_INT);
     signals[ACTION_INVOKED] = g_signal_new("action-invoked", G_TYPE_FROM_CLASS(class), G_SIGNAL_RUN_LAST, 0, NULL, NULL, g_cclosure_marshal_VOID__STRING, G_TYPE_NONE, 1, G_TYPE_STRING);
 }
 
-static void
-nd_notification_init(NdNotification* notification)
+static void nd_notification_init(NdNotification* notification)
 {
     notification->id = get_next_notification_serial();
 
@@ -267,12 +240,9 @@ nd_notification_init(NdNotification* notification)
     notification->actionIcons = FALSE;
 }
 
-static void
-nd_notification_finalize(GObject* object)
+static void nd_notification_finalize(GObject* object)
 {
-    NdNotification* notification;
-
-    notification = ND_NOTIFICATION(object);
+    NdNotification* notification = ND_NOTIFICATION(object);
 
     g_free(notification->sender);
     g_free(notification->appName);
@@ -284,8 +254,8 @@ nd_notification_finalize(GObject* object)
     if (G_OBJECT_CLASS(nd_notification_parent_class)->finalize) (*G_OBJECT_CLASS(nd_notification_parent_class)->finalize)(object);
 }
 
-bool
-nd_notification_update(NdNotification* notification, const gchar* app_name, const gchar* app_icon, const gchar* summary, const gchar* body, const gchar* const * actions, GVariant* hints, gint timeout)
+bool nd_notification_update(NdNotification* notification, const gchar* app_name,
+    const gchar* app_icon, const gchar* summary, const gchar* body, const gchar* const * actions, GVariant* hints, gint timeout)
 {
     GVariantDict dict;
 
@@ -307,11 +277,17 @@ nd_notification_update(NdNotification* notification, const gchar* app_name, cons
 
     update_icon(notification, app_icon, &dict);
 
-    if (!g_variant_dict_lookup(&dict, "transient", "b", &notification->transient)) notification->transient = FALSE;
+    if (!g_variant_dict_lookup(&dict, "transient", "b", &notification->transient)) {
+        notification->transient = FALSE;
+    }
 
-    if (!g_variant_dict_lookup(&dict, "resident", "b", &notification->resident)) notification->resident = FALSE;
+    if (!g_variant_dict_lookup(&dict, "resident", "b", &notification->resident)) {
+        notification->resident = FALSE;
+    }
 
-    if (!g_variant_dict_lookup(&dict, "action-icons", "b", &notification->actionIcons)) notification->actionIcons = FALSE;
+    if (!g_variant_dict_lookup(&dict, "action-icons", "b", &notification->actionIcons)) {
+        notification->actionIcons = FALSE;
+    }
 
     notification->timeout = timeout;
 
@@ -322,104 +298,90 @@ nd_notification_update(NdNotification* notification, const gchar* app_name, cons
     return TRUE;
 }
 
-gint64
-nd_notification_get_update_time(NdNotification* notification)
+gint64 nd_notification_get_update_time(NdNotification* notification)
 {
     g_return_val_if_fail(ND_IS_NOTIFICATION (notification), 0);
 
     return notification->updateTime;
 }
 
-void
-nd_notification_set_is_queued(NdNotification* notification, bool is_queued)
+void nd_notification_set_is_queued(NdNotification* notification, bool isQueued)
 {
     g_return_if_fail(ND_IS_NOTIFICATION (notification));
 
-    notification->isQueued = is_queued;
+    notification->isQueued = isQueued;
 }
 
-bool
-nd_notification_get_is_queued(NdNotification* notification)
+bool nd_notification_get_is_queued(NdNotification* notification)
 {
     g_return_val_if_fail(ND_IS_NOTIFICATION (notification), FALSE);
 
     return notification->isQueued;
 }
 
-bool
-nd_notification_get_is_transient(NdNotification* notification)
+bool nd_notification_get_is_transient(NdNotification* notification)
 {
     return notification->transient;
 }
 
-bool
-nd_notification_get_is_resident(NdNotification* notification)
+bool nd_notification_get_is_resident(NdNotification* notification)
 {
     return notification->resident;
 }
 
-bool
-nd_notification_get_action_icons(NdNotification* notification)
+bool nd_notification_get_action_icons(NdNotification* notification)
 {
     return notification->actionIcons;
 }
 
-guint32
-nd_notification_get_id(NdNotification* notification)
+guint32 nd_notification_get_id(NdNotification* notification)
 {
     g_return_val_if_fail(ND_IS_NOTIFICATION (notification), -1);
 
     return notification->id;
 }
 
-char**
-nd_notification_get_actions(NdNotification* notification)
+char** nd_notification_get_actions(NdNotification* notification)
 {
     g_return_val_if_fail(ND_IS_NOTIFICATION (notification), NULL);
 
     return notification->actions;
 }
 
-const char*
-nd_notification_get_sender(NdNotification* notification)
+const char* nd_notification_get_sender(NdNotification* notification)
 {
     g_return_val_if_fail(ND_IS_NOTIFICATION (notification), NULL);
 
     return notification->sender;
 }
 
-const char*
-nd_notification_get_summary(NdNotification* notification)
+const char* nd_notification_get_summary(NdNotification* notification)
 {
     g_return_val_if_fail(ND_IS_NOTIFICATION (notification), NULL);
 
     return notification->summary;
 }
 
-const char*
-nd_notification_get_body(NdNotification* notification)
+const char* nd_notification_get_body(NdNotification* notification)
 {
     g_return_val_if_fail(ND_IS_NOTIFICATION (notification), NULL);
 
     return notification->body;
 }
 
-int
-nd_notification_get_timeout(NdNotification* notification)
+int nd_notification_get_timeout(NdNotification* notification)
 {
     g_return_val_if_fail(ND_IS_NOTIFICATION (notification), -1);
 
     return notification->timeout;
 }
 
-GIcon*
-nd_notification_get_icon(NdNotification* notification)
+GIcon* nd_notification_get_icon(NdNotification* notification)
 {
     return notification->icon;
 }
 
-void
-nd_notification_close(NdNotification* notification, NdNotificationClosedReason reason)
+void nd_notification_close(NdNotification* notification, NdNotificationClosedReason reason)
 {
     g_return_if_fail(ND_IS_NOTIFICATION (notification));
 
@@ -428,8 +390,7 @@ nd_notification_close(NdNotification* notification, NdNotificationClosedReason r
     g_object_unref(notification);
 }
 
-void
-nd_notification_action_invoked(NdNotification* notification, const char* action)
+void nd_notification_action_invoked(NdNotification* notification, const char* action)
 {
     g_return_if_fail(ND_IS_NOTIFICATION (notification));
 
@@ -438,31 +399,29 @@ nd_notification_action_invoked(NdNotification* notification, const char* action)
     g_object_unref(notification);
 }
 
-NdNotification*
-nd_notification_new(const char* sender)
+NdNotification* nd_notification_new(const char* sender)
 {
-    g_info("nd notification new");
+    g_info("[notify] nd notification new");
     NdNotification* notification = (NdNotification*)g_object_new(ND_TYPE_NOTIFICATION, NULL);
     notification->sender = g_strdup(sender);
 
     return notification;
 }
 
-bool
-validate_markup(const gchar* markup)
+bool validate_markup(const gchar* markup)
 {
     GError* error = NULL;
     gchar* parsedMarkup = NULL;
 
     if (!parse_markup(markup, &parsedMarkup, &error)) {
-        g_warning("%s", error->message);
+        g_warning("[notify] %s", error->message);
         g_error_free(error);
 
         return FALSE;
     }
 
     if (!pango_parse_markup(parsedMarkup, -1, 0, NULL, NULL, NULL, &error)) {
-        g_warning("%s", error->message);
+        g_warning("[notify] %s", error->message);
         g_error_free(error);
 
         g_free(parsedMarkup);

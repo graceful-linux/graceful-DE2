@@ -10,13 +10,13 @@
 #include "nd-notification.h"
 #include "gd-fd-notifications-gen.dbus.h"
 
-#define NOTIFICATIONS_DBUS_NAME "org.freedesktop.Notifications"
-#define NOTIFICATIONS_DBUS_PATH "/org/freedesktop/Notifications"
+#define NOTIFICATIONS_DBUS_NAME     "org.freedesktop.Notifications"
+#define NOTIFICATIONS_DBUS_PATH     "/org/freedesktop/Notifications"
 
-#define INFO_NAME "Notification Daemon"
-#define INFO_VENDOR "graceful"
-#define INFO_VERSION PACKAGE_VERSION
-#define INFO_SPEC_VERSION "1.2"
+#define INFO_NAME                   "Notification Daemon"
+#define INFO_VENDOR                 "graceful"
+#define INFO_VERSION                PACKAGE_VERSION
+#define INFO_SPEC_VERSION           "1.2"
 
 struct _NdDaemon
 {
@@ -42,7 +42,7 @@ static void closed_cb(NdNotification* notification, gint reason, gpointer uData)
 static void action_invoked_cb(NdNotification* notification, const gchar* action, gpointer uData)
 {
     NdDaemon* daemon = ND_DAEMON(uData);
-    gint id = nd_notification_get_id(notification);
+    const gint id = nd_notification_get_id(notification);
 
     gd_fd_notifications_gen_emit_action_invoked(daemon->notifications, id, action);
 
@@ -75,8 +75,7 @@ static bool handle_close_notification_cb(GDFdNotificationsGen* object, GDBusMeth
     return TRUE;
 }
 
-static bool
-handle_get_capabilities_cb(GDFdNotificationsGen* object, GDBusMethodInvocation* invocation, gpointer uData)
+static bool handle_get_capabilities_cb(GDFdNotificationsGen* object, GDBusMethodInvocation* invocation, gpointer uData)
 {
     const gchar* const capabilities[] = {"actions", "body", "body-hyperlinks", "body-markup", "icon-static", "sound", "persistence", "action-icons", NULL};
 
@@ -85,8 +84,7 @@ handle_get_capabilities_cb(GDFdNotificationsGen* object, GDBusMethodInvocation* 
     return TRUE;
 }
 
-static bool
-handle_get_server_information_cb(GDFdNotificationsGen* object, GDBusMethodInvocation* invocation, gpointer uData)
+static bool handle_get_server_information_cb(GDFdNotificationsGen* object, GDBusMethodInvocation* invocation, gpointer uData)
 {
     gd_fd_notifications_gen_complete_get_server_information(object, invocation, INFO_NAME, INFO_VENDOR, INFO_VERSION, INFO_SPEC_VERSION);
 
@@ -101,7 +99,7 @@ static bool handle_notify_cb(GDFdNotificationsGen* object, GDBusMethodInvocation
 
     NdDaemon* daemon = ND_DAEMON(uData);
 
-    g_info("DBus handle notify");
+    g_info("[notify] DBus handle notify");
 
     if (replacesId > 0) {
         notification = nd_queue_lookup(daemon->queue, replacesId);
@@ -141,7 +139,7 @@ static void bus_acquired_handler_cb(GDBusConnection* connection, const gchar* na
     NdDaemon* daemon = ND_DAEMON(uData);
     GDBusInterfaceSkeleton* skeleton = G_DBUS_INTERFACE_SKELETON(daemon->notifications);
 
-    g_info("DBus '%s' acquired", name);
+    g_info("[notify] DBus '%s' acquired", name);
 
     g_signal_connect(daemon->notifications, "handle-close-notification", G_CALLBACK (handle_close_notification_cb), daemon);
     g_signal_connect(daemon->notifications, "handle-get-capabilities", G_CALLBACK (handle_get_capabilities_cb), daemon);
@@ -151,14 +149,14 @@ static void bus_acquired_handler_cb(GDBusConnection* connection, const gchar* na
     GError* error = NULL;
     const bool exported = g_dbus_interface_skeleton_export(skeleton, connection, NOTIFICATIONS_DBUS_PATH, &error);
     if (!exported) {
-        g_warning("Failed to export interface: %s", error->message);
+        g_warning("[notify] Failed to export interface: %s", error->message);
         g_error_free(error);
     }
 }
 
 static void name_lost_handler_cb(GDBusConnection* connection, const gchar* name, gpointer uData)
 {
-    g_info("DBus '%s' lost, connection: %p", name, connection);
+    g_info("[notify] DBus '%s' lost, connection: %p", name, connection);
 }
 
 static void nd_daemon_constructed(GObject* object)
@@ -174,8 +172,7 @@ static void nd_daemon_constructed(GObject* object)
         bus_acquired_handler_cb, NULL, name_lost_handler_cb, daemon, NULL);
 }
 
-static void
-nd_daemon_dispose(GObject* object)
+static void nd_daemon_dispose(GObject* object)
 {
     NdDaemon* daemon = ND_DAEMON(object);
 

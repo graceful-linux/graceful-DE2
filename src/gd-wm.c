@@ -214,9 +214,9 @@ static void gd_wm_finalize (GObject *object)
     G_OBJECT_CLASS (gd_wm_parent_class)->finalize (object);
 }
 
-static void gd_wm_class_init (GDWmClass *self_class)
+static void gd_wm_class_init (GDWmClass *self)
 {
-    GObjectClass *objClass = G_OBJECT_CLASS (self_class);
+    GObjectClass *objClass = G_OBJECT_CLASS (self);
     objClass->finalize = gd_wm_finalize;
 }
 

@@ -215,9 +215,10 @@ static void session_manager_ready_cb (GObject* srcObj, GAsyncResult *res, void* 
 
 static void gd_panel_register (GDPanel* self)
 {
+    g_info("[panel] panel register");
     g_dbus_proxy_call(self->proxy,
         "RegisterClient",
-        g_variant_new("(ss)", "graceful-DE2", self->startupId),
+        g_variant_new("(ss)", "graceful-DE2-panel", self->startupId),
         G_DBUS_CALL_FLAGS_NONE,
         -1,
         self->cancellable,
@@ -226,12 +227,13 @@ static void gd_panel_register (GDPanel* self)
 
 static void register_client_cb (GObject* source_object, GAsyncResult *res, void* uData)
 {
-    GError *error = NULL;
+    g_info("[panel] register client");
 
+    GError *error = NULL;
     GVariant *variant = g_dbus_proxy_call_finish (G_DBUS_PROXY (source_object), res, &error);
     if (error != NULL) {
         if (!g_error_matches (error, G_IO_ERROR, G_IO_ERROR_CANCELLED)) {
-            g_warning ("Failed to register client: %s", error->message);
+            g_warning ("[panel] Failed to register client: %s", error->message);
         }
         g_error_free (error);
         return;
@@ -254,15 +256,15 @@ static void register_client_cb (GObject* source_object, GAsyncResult *res, void*
 
 static void client_private_ready_cb (GObject* srcObj, GAsyncResult *res, void* uData)
 {
-    GError *error;
+    g_info("[panel] client private ready");
 
-    error = NULL;
+    GError *error = NULL;
     GDBusProxy* proxy = g_dbus_proxy_new_for_bus_finish (res, &error);
 
     if (error != NULL) {
-        if (!g_error_matches (error, G_IO_ERROR, G_IO_ERROR_CANCELLED))
+        if (!g_error_matches (error, G_IO_ERROR, G_IO_ERROR_CANCELLED)) {
             g_warning ("Failed to get a client proxy: %s", error->message);
-
+        }
         g_error_free (error);
         return;
     }
@@ -271,6 +273,8 @@ static void client_private_ready_cb (GObject* srcObj, GAsyncResult *res, void* u
     self->clientPrivate = proxy;
 
     g_signal_connect (self->clientPrivate, "g-signal", G_CALLBACK (g_signal_cb), self);
+
+    gd_panel_register (self);
 }
 
 static void g_signal_cb (GDBusProxy *proxy, char* senderName, char* signalName, GVariant* parameters, GDPanel* self)
