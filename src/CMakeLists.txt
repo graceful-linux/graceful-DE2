@@ -136,6 +136,8 @@ add_executable(graceful-DE2 main.c
         plugins/shell/gd-label-window.h plugins/shell/gd-label-window.c
         plugins/shell/gd-shell-introspect.h plugins/shell/gd-shell-introspect.c
 
+        plugins/background/gd-root-background.h plugins/background/gd-root-background.c
+
         plugins/status-notify-watcher/gd-sn-watcher-v0.h plugins/status-notify-watcher/gd-sn-watcher-v0.c
         plugins/status-notify-watcher/gd-status-notifier-watcher.h plugins/status-notify-watcher/gd-status-notifier-watcher.c
 
